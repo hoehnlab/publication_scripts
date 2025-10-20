@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><beast beautitemplate='Standard' beautistatus='' namespace="beast.base.core:beast.base.evolution.alignment:beast.base.evolution.tree.coalescent:beast.base.core.util:beast.base.evolution.nuc:beast.base.evolution.operators:beast.base.evolution.sitemodel:beast.base.evolution.substitutionmodel:beast.base.evolution.alignment:beast.base.pkgmgmt:beast.base.core:beast.base.inference:beast.base.evolution.tree.coalescent:beast.base.pkgmgmt:beast.base.core:beast.base.inference.util:beast.base.evolution.nuc:beast.base.evolution.operator:beast.base.inference.operator:beast.base.evolution.sitemodel:beast.base.evolution.substitutionmodel:beast.base.evolution.likelihood" required="BEAST.base v2.7.6:BEAST_CLASSIC v1.6.2" version="2.7">
+
+${DATA}
+
+    <parameter spec='beast.base.inference.parameter.IntegerParameter' name='nodeTypes' id='nodeTypes' dimension="${NODES}" value="0" upper="1" lower="0"/>
+    <parameter id="typeLinkedRates" spec="parameter.RealParameter" estimate="true" name="typeLinkedRates" dimension="2" upper="0.05" lower="0.0">${TRAIT_RATE_MEAN_1} ${TRAIT_RATE_MEAN_2}</parameter>
+
+    <map name="Uniform" >beast.base.inference.distribution.Uniform</map>
+    <map name="Exponential" >beast.base.inference.distribution.Exponential</map>
+    <map name="LogNormal" >beast.base.inference.distribution.LogNormalDistributionModel</map>
+    <map name="Normal" >beast.base.inference.distribution.Normal</map>
+    <map name="Beta" >beast.base.inference.distribution.Beta</map>
+    <map name="Gamma" >beast.base.inference.distribution.Gamma</map>
+    <map name="LaplaceDistribution" >beast.base.inference.distribution.LaplaceDistribution</map>
+    <map name="prior" >beast.base.inference.distribution.Prior</map>
+    <map name="InverseGamma" >beast.base.inference.distribution.InverseGamma</map>
+    <map name="OneOnX" >beast.base.inference.distribution.OneOnX</map>
+
+    <run id="mcmc" spec="MCMC" chainLength="30000000">
+        <state id="state" spec="State" storeEvery="5000">
+            <tree id="Tree.t:${CLONE}" spec="beast.base.evolution.tree.Tree" name="stateNode">
+                ${DATE}
+                <taxonset idref="TaxonSet.${CLONE}"/>
+            </tree>
+            <parameter id="rateIndicator.s:type" spec="parameter.BooleanParameter" dimension="2" name="stateNode">${RATE_INDICATORS}</parameter>
+            <parameter id="relativeGeoRates.s:type" spec="parameter.RealParameter" name="stateNode" dimension="2" estimate="true">1.0 1.0</parameter>
+            <parameter id="typeSwitchClockRate.c:type" spec="parameter.RealParameter" name="stateNode" upper="0.5">0.004</parameter>
+            <parameter id="clockRate.c:${CLONE}" spec="parameter.RealParameter" name="stateNode">0.001</parameter>
+            <parameter id="kappa.s:${CLONE}" spec="parameter.RealParameter" lower="0.0" name="stateNode">2.0</parameter>
+            <parameter id="bPopSizes.t:${CLONE}" spec="parameter.RealParameter" dimension="5" lower="0.0" name="stateNode">380.0</parameter>
+            <stateNode id="bGroupSizes.t:${CLONE}" spec="parameter.IntegerParameter" dimension="5">1</stateNode>
+            <parameter id="freqParameter.s:${CLONE}" spec="parameter.RealParameter" dimension="4" lower="0.0" name="stateNode" upper="1.0">${EMP_EQFREQS}</parameter>
+            <parameter idref="nodeTypes" spec="parameter.IntegerParameter" name="stateNode"/>
+            <parameter idref="typeLinkedRates" spec="parameter.RealParameter" name="stateNode" />
+            <!-- <parameter idref="operatorIndicator1" name="stateNode"/>
+            <parameter idref="operatorIndicator2" name="stateNode"/> -->
+        </state>
+        <init id="RandomTree.t:${CLONE}" spec="beast.base.evolution.tree.coalescent.RandomTree" estimate="false" initial="@Tree.t:${CLONE}" taxa="@${CLONE}">
+            <populationModel id="ConstantPopulation0.t:${CLONE}" spec="ConstantPopulation">
+                <parameter id="randomPopSize.t:${CLONE}" spec="parameter.RealParameter" name="popSize">1.0</parameter>
+            </populationModel>
+        </init>
+        <distribution id="posterior" spec="CompoundDistribution">
+            <distribution id="prior" spec="CompoundDistribution">
+                <distribution id="BayesianSkyline.t:${CLONE}" spec="BayesianSkyline" groupSizes="@bGroupSizes.t:${CLONE}" popSizes="@bPopSizes.t:${CLONE}">
+                    <treeIntervals id="BSPTreeIntervals.t:${CLONE}" spec="beast.base.evolution.tree.TreeIntervals" tree="@Tree.t:${CLONE}"/>
+                </distribution>
+                <distribution id="MarkovChainedPopSizes.t:${CLONE}" spec="beast.base.inference.distribution.MarkovChainDistribution" jeffreys="true" parameter="@bPopSizes.t:${CLONE}"/>
+                <prior id="ClockPrior.c:${CLONE}" name="distribution" x="@clockRate.c:${CLONE}">
+                    <Uniform id="Uniform.0" name="distr" upper="Infinity"/>
+                </prior>
+                <prior id="FrequenciesPrior.s:${CLONE}" name="distribution" x="@freqParameter.s:${CLONE}">
+                    <Uniform id="Uniform.4" name="distr"/>
+                </prior>
+                <prior id="KappaPrior.s:${CLONE}" name="distribution" x="@kappa.s:${CLONE}">
+                    <LogNormal id="LogNormalDistributionModel.0" name="distr">
+                        <parameter id="RealParameter.6" spec="parameter.RealParameter" estimate="false" name="M">${KAPPA_PRIOR_M}</parameter>
+                        <parameter id="RealParameter.7" spec="parameter.RealParameter" estimate="false" name="S">${KAPPA_PRIOR_S}</parameter>
+                    </LogNormal>
+                </prior>
+                <prior id="nonZeroRatePrior.s:type" name="distribution">
+                    <x id="nonZeroRates.s:type" spec="beast.base.evolution.Sum">
+                        <arg idref="rateIndicator.s:type"/>
+                    </x>
+                    <distr id="Poisson.0" spec="beast.base.inference.distribution.Poisson" offset="1.0">
+                        <parameter id="RealParameter.5" spec="parameter.RealParameter" estimate="false" name="lambda">0.693</parameter>
+                    </distr>
+                </prior>
+                <distribution id="relativeGeoRatesPrior" spec="tyche.inference.distribution.ElementwisePrior">
+                    <parameter idref="relativeGeoRates.s:type"/>
+                    <distribution id="ElementWiseGamma.1" spec="beast.base.inference.distribution.Gamma">
+                        <parameter id="alpha:ElementWiseGamma.1" spec="parameter.RealParameter" estimate="false" name="alpha">${TRANSITION_RATE_ALPHA_1}</parameter>
+                        <parameter id="beta:ElementWiseGamma.1" spec="parameter.RealParameter" estimate="false" name="beta">${TRANSITION_RATE_BETA_1}</parameter>
+                    </distribution>
+                    <distribution id="ElementWiseGamma.2" spec="beast.base.inference.distribution.Gamma">
+                        <parameter id="alpha:ElementWiseGamma.2" spec="parameter.RealParameter" estimate="false" name="alpha">${TRANSITION_RATE_ALPHA_2}</parameter>
+                        <parameter id="beta:ElementWiseGamma.2" spec="parameter.RealParameter" estimate="false" name="beta">${TRANSITION_RATE_BETA_2}</parameter>
+                    </distribution>
+                </distribution>
+                <distribution id="typeLinkedRatesPrior" spec="tyche.inference.distribution.ElementwisePrior">
+                    <parameter idref="typeLinkedRates"/>
+                    <Normal id="typeLinkedRatesPriorNormal.1" name="distribution">
+                        <parameter id="mean:typeLinkedRatesPriorNormal.1" spec="parameter.RealParameter" estimate="false" name="mean">${TRAIT_RATE_MEAN_1}</parameter>
+                        <parameter id="sigma:typeLinkedRatesPriorNormal.1" spec="parameter.RealParameter" estimate="false" name="sigma">${TRAIT_RATE_SIGMA_1}</parameter>
+                    </Normal>
+                    <Normal id="typeLinkedRatesPriorNormal.2" name="distribution">
+                        <parameter id="mean:typeLinkedRatesPriorNormal.2" spec="parameter.RealParameter" estimate="false" name="mean">${TRAIT_RATE_MEAN_2}</parameter>
+                        <parameter id="sigma:typeLinkedRatesPriorNormal.2" spec="parameter.RealParameter" estimate="false" name="sigma">${TRAIT_RATE_SIGMA_2}</parameter>
+                    </Normal>
+                </distribution>
+
+                <prior id="geoclockPrior.c:type" name="distribution" x="@typeSwitchClockRate.c:type">
+                    <Gamma id="Gamma.0" name="distr">
+                        <parameter id="RealParameter.1" spec="parameter.RealParameter" estimate="false" name="alpha">0.001</parameter>
+                        <parameter id="RealParameter.2" spec="parameter.RealParameter" estimate="false" name="beta">5.0</parameter>
+                    </Gamma>
+                </prior>
+                ${MRCA}
+            </distribution>
+            <distribution id="likelihood" spec="CompoundDistribution" useThreads="true">
+                <distribution id="typedTreeLikelihood.type" spec="tyche.evolution.likelihood.AncestralTypeLikelihood" tag="location" tree="@Tree.t:${CLONE}" >
+                    <data
+                            id="type"
+                            spec="beastclassic.evolution.alignment.AlignmentFromTrait">
+                        ${TRAIT}
+                    </data>
+                    <siteModel id="geoSiteModel.s:type" spec="SiteModel" gammaCategoryCount="1">
+                        <parameter id="mutationRate.s:type" spec="parameter.RealParameter" estimate="false" name="mutationRate">1.0</parameter>
+                        <parameter id="gammaShape.s:type" spec="parameter.RealParameter" estimate="false" name="shape">1.0</parameter>
+                        <parameter id="proportionInvariant.s:type" spec="parameter.RealParameter" estimate="false" lower="0.0" name="proportionInvariant" upper="1.0">0.0</parameter>
+                        <substModel id="svs.s:type" spec="tyche.evolution.substitutionmodel.TycheSVSGeneralSubstitutionModel" rateIndicator="@rateIndicator.s:type" rates="@relativeGeoRates.s:type" symmetric="false">
+                            <frequencies id="traitfreqs.s:type" spec="Frequencies">
+                                <parameter id="traitfrequencies.s:type" spec="parameter.RealParameter" dimension="2" name="frequencies">0.5</parameter>
+                            </frequencies>
+                        </substModel>
+                    </siteModel>
+                    <branchRateModel id="StrictClockModel.c:type" spec="beast.base.evolution.branchratemodel.StrictClockModel" clock.rate="@typeSwitchClockRate.c:type"/>
+                    <input name="nodeTypes" idref="nodeTypes"/>
+                </distribution>
+                <distribution id="treeLikelihood.${CLONE}" spec="TreeLikelihood" data="@${CLONE}" tree="@Tree.t:${CLONE}">
+                    ${ROOTFREQS}
+                    <siteModel id="SiteModel.s:${CLONE}" spec="SiteModel">
+                        <parameter id="mutationRate.s:${CLONE}" spec="parameter.RealParameter" estimate="false" name="mutationRate">1.0</parameter>
+                        <parameter id="gammaShape.s:${CLONE}" spec="parameter.RealParameter" estimate="false" name="shape">1.0</parameter>
+                        <parameter id="proportionInvariant.s:${CLONE}" spec="parameter.RealParameter" estimate="false" lower="0.0" name="proportionInvariant" upper="1.0">0.0</parameter>
+                        <substModel id="hky.s:${CLONE}" spec="HKY" kappa="@kappa.s:${CLONE}">
+                            <frequencies id="estimatedFreqs.s:${CLONE}" spec="Frequencies" frequencies="@freqParameter.s:${CLONE}"/>
+                        </substModel>
+                    </siteModel>
+                    <branchRateModel spec='tyche.evolution.branchratemodel.TycheExpectedOccupancyClockModel' id="branchRates">
+                        <input name="typeLinkedRates" idref="typeLinkedRates" />
+                        <parameter id="traitlinkedclock.rate" name="clock.rate" value="1.0"/>
+                        <input name="nodeTypes" idref="nodeTypes"/>
+                        <input name="substitutionModel" idref="svs.s:type" />
+                        <input name="typeSwitchClockRate" idref="typeSwitchClockRate.c:type" />
+                    </branchRateModel>
+                </distribution>
+            </distribution>
+        </distribution>
+        <operator id="georateScaler.s:type" spec="ScaleOperator" parameter="@relativeGeoRates.s:type" scaleAllIndependently="true" scaleFactor="0.99" weight="1.0"/>
+        <!--    <operator id="indicatorFlip.s:type" spec="BitFlipOperator" parameter="@rateIndicator.s:type" weight="30.0"/>-->
+        <operator id="geoMuScaler.c:type" spec="ScaleOperator" parameter="@typeSwitchClockRate.c:type" scaleFactor="0.9" weight="3.0"/>
+        <!--    <operator id="BSSVSoperator.c:type" spec="BitFlipBSSVSOperator" indicator="@rateIndicator.s:type" mu="@typeSwitchClockRate.c:type" weight="30.0"/>-->
+        <operator id="nodeTypesUniformTreeOperator" spec="tyche.evolution.operator.LeafConsciousTypeTreeOperator" tree="@Tree.t:${CLONE}"  weight="20.0">
+            <input name="nodeTypes" idref="nodeTypes"/>
+        </operator>
+        <operator id="nodeTypesSubtreeTypeSwitchOperator" spec="tyche.evolution.operator.SubtreeTypeSwitchOperator" tree="@Tree.t:${CLONE}" weight="2.0">
+            <input name="nodeTypes" idref="nodeTypes"/>
+        </operator>
+        <operator id="KappaScaler.s:${CLONE}" spec="ScaleOperator" parameter="@kappa.s:${CLONE}" scaleFactor="0.5" weight="0.05"/>
+        <!-- bayesian skyline tree operators  -->
+        <operator id="BayesianSkylineTreeScaler.t:${CLONE}" spec="ScaleOperator" scaleFactor="0.5" tree="@Tree.t:${CLONE}" weight="4.0"/>
+        <operator id="BayesianSkylineTreeRootScaler.t:${CLONE}" spec="ScaleOperator" rootOnly="true" scaleFactor="0.5" tree="@Tree.t:${CLONE}" weight="4.0"/>
+        <operator id="BayesianSkylineUniformOperator.t:${CLONE}" spec="Uniform" tree="@Tree.t:${CLONE}" weight="40.0"/>
+        <operator id="BayesianSkylineSubtreeSlide.t:${CLONE}" spec="SubtreeSlide" tree="@Tree.t:${CLONE}" weight="20.0"/>
+        <operator id="BayesianSkylineNarrow.t:${CLONE}" spec="Exchange" tree="@Tree.t:${CLONE}" weight="20.0"/>
+        <operator id="BayesianSkylineWide.t:${CLONE}" spec="Exchange" isNarrow="false" tree="@Tree.t:${CLONE}" weight="4.0"/>
+        <operator id="BayesianSkylineWilsonBalding.t:${CLONE}" spec="WilsonBalding" tree="@Tree.t:${CLONE}" weight="4.0"/>
+        <!-- up to here -->
+        <operator id="popSizesScaler.t:${CLONE}" spec="ScaleOperator" parameter="@bPopSizes.t:${CLONE}" weight="15.0"/>
+        <operator id="groupSizesDelta.t:${CLONE}" spec="DeltaExchangeOperator" integer="true" weight="6.0">
+            <intparameter idref="bGroupSizes.t:${CLONE}"/>
+        </operator>
+        <!--operator id="FrequenciesExchanger.s:${CLONE}" spec="DeltaExchangeOperator" delta="0.01" weight="0.1">
+            <parameter idref="freqParameter.s:${CLONE}"/>
+        </operator-->
+        ${OPERATORS}
+        <logger id="tracelog" spec="Logger" fileName="${CLONE}.log" logEvery="1000" model="@posterior" sanitiseHeaders="true" sort="smart">
+            <log idref="posterior"/>
+            <log idref="likelihood"/>
+            <log idref="prior"/>
+            <log idref="treeLikelihood.${CLONE}"/>
+            <log id="TreeHeight.t:${CLONE}" spec="beast.base.evolution.tree.TreeHeightLogger" tree="@Tree.t:${CLONE}"/>
+            <log idref="rateIndicator.s:type"/>
+            <log idref="relativeGeoRates.s:type"/>
+            <log idref="typeSwitchClockRate.c:type"/>
+            <!-- <log idref="clockRate.c:${CLONE}"/> -->
+            <log idref="kappa.s:${CLONE}"/>
+            <log idref="BayesianSkyline.t:${CLONE}"/>
+            <log idref="bPopSizes.t:${CLONE}"/>
+            <log idref="bGroupSizes.t:${CLONE}"/>
+            <log idref="freqParameter.s:${CLONE}"/>
+            <log idref="traitfrequencies.s:type"/>
+            <log idref="typeLinkedRates"/>
+        </logger>
+        <logger id="screenlog" spec="Logger" logEvery="1000">
+            <log idref="posterior"/>
+            <log idref="likelihood"/>
+            <log idref="prior"/>
+        </logger>
+        <logger id="treelog.t:${CLONE}" spec="Logger" fileName="$(tree).trees" logEvery="1000" mode="tree">
+            <log id="TreeWithMetaDataLogger.t:${CLONE}" spec="beast.base.evolution.TreeWithMetaDataLogger" tree="@Tree.t:${CLONE}"/>
+        </logger>
+        <logger id="treeWithTraitLogger.type" spec="Logger" fileName="${CLONE}_tree_with_trait.trees" logEvery="10000" mode="tree">
+            <log id="TreeWithTraitLogger.0" spec="beastclassic.evolution.tree.TreeWithTraitLogger" tree="@Tree.t:${CLONE}">
+                <metadata idref="posterior"/>
+                <metadata idref="typedTreeLikelihood.type"/>
+            </log>
+        </logger>
+        <operatorschedule id="OperatorSchedule" spec="OperatorSchedule"/>
+    </run>
+</beast>
