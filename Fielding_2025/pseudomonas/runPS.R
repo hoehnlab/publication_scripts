@@ -14,7 +14,7 @@ seed = 12345
 mcmc_length = 1e+09
 iterations = 10
 
-if(TRUE){
+if(FALSE){
 
     # read in data
     fasta = readFasta("data/hypermutator_paper_alignment_L.fasta")
@@ -84,13 +84,11 @@ htree = readRDS("intermediates/htree.rds")
 runs = c(
     "ucld",
     "strict",
-    "typelinked-est-irrev",
-    "typelinked-est-irrev-relaxed"
+    "typelinked-est-irrev"
         )
 
 templates = c(
-    "typelinked-est-irrev"=paste0("templates/TraitLinkedExpectedOccupancy_EstimatedTraitClockRates_EmpFreq.xml"),
-    "typelinked-est-irrev-relaxed"=paste0("templates/TraitLinkedExpectedOccupancy_EstimatedTraitClockRates_EmpFreq.xml"),
+    "typelinked-est-irrev"=paste0("templates/TypeLinkedExpectedOccupancy_NoGRT_EstTraitClockRates_EmpFreq.xml"),
     "strict"=paste0("templates/StrictClock_AncestralReconstruction_EmpFreq.xml"),
     "ucld"="templates/UCRelaxedClock_AncestralReconstruction_EstTraitClockRates_EmpFreq.xml"
         )
@@ -118,7 +116,7 @@ for(run in runs){
     trees = getTimeTreesIterate(clones, beast=beast, 
         trait="location", time="sample_time",
         dir=paste0("~/Documents/pseudomonas/"), 
-        id=paste0(run,"_v003"), 
+        id=paste0(run,"_v009"), 
         template=xtemplate, nproc=cores, 
         mcmc_length=mcmc_length,
         iterations=iterations,
@@ -140,10 +138,15 @@ for(run in runs){
         TRANSITION_RATE_ALPHA_2=TRANSITION_RATE_ALPHA_2,
         TRANSITION_RATE_BETA_1=TRANSITION_RATE_BETA_1,
         TRANSITION_RATE_BETA_2=TRANSITION_RATE_BETA_2,
-        seed=seed, ignore=ignore)
+        seed=seed, ignore=ignore,
+        TRANSITION_RATE_1_INIT=1.0,
+        TRANSITION_RATE_2_INIT=1.0,
+        TYPE_SWITCH_INIT=0.004,
+        TYPE_SWITCH_ALPHA=0.001,
+        TYPE_SWITCH_BETA=5.0)
 
-    saveRDS(trees, paste0("intermediates/",run,"_v003_trees.rds"))
+    saveRDS(trees, paste0("intermediates/",run,"_v009_trees.rds"))
     plots = plotTrees(trees, tips="location", nodes=TRUE, scale=108)
-    treesToPDF(plots,paste0("results/",run,"_v003_trees.pdf"))
+    treesToPDF(plots,paste0("results/",run,"_v009_trees.pdf"))
 }
 

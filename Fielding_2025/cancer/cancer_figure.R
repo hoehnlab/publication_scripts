@@ -1,6 +1,3 @@
-# Kenneth B. Hoehn
-# 9/19/25
-# Make figures from cancer analysis
 
 library(dowser)
 library(dplyr)
@@ -50,7 +47,7 @@ ggtree_height_bars = function(tr, color="blue", alpha=0.4, size=1.5){
 patient = "4F0A"
 gd = readRDS(paste0("intermediates/",patient,"_gd_HN_tree.rds"))
 ngd = readRDS(paste0("intermediates/",patient,"_gd_N_tree.rds"))
-tlt = readRDS(paste0("intermediates/typelinked-est-irrev_v003_germline_trees.rds"))
+tlt = readRDS(paste0("intermediates/typelinked-est-irrev_v009_germline_trees.rds"))
 st = readRDS(paste0("intermediates/strict_v003_germline_trees.rds"))
 uc = readRDS(paste0("intermediates/ucld_v003_germline_trees.rds"))
 no = readRDS(paste0("intermediates/strict_N_v003_germline_trees_constant.rds"))
@@ -79,9 +76,10 @@ print(uc$below_ESS)
 print(st$below_ESS)
 print(no$below_ESS)
 
+# UCLD seems fine
 bind_cols(uc$parameters[[1]]$item, uc$parameters[[1]]$ESS)
 
-pdf(paste0("results/",patient,"_hypermutator_tree_v003.pdf"),width=5,height=1.25)
+pdf(paste0("results/",patient,"_hypermutator_tree_v009.pdf"),width=5,height=1.25)
 ggtree_height_bars(tlt$trees[[1]]) +
 geom_nodepoint(aes(fill= 3772-(as.numeric(height)),pch=location),size=2) +
 geom_tippoint(aes(fill=3772-(as.numeric(height)),pch=location),size=2) +
@@ -109,15 +107,68 @@ scale_shape_manual(values=shapes) +
 labs(fill="Day", shape="Clone")
 dev.off()
 
-pdf(paste0("results/",patient,"_hypermutator_tree_v003_TL.pdf"),width=5,height=1.25)
+
+hmax = max(unlist(no$trees[[1]]@data$height_0.95_HPD),na.rm=TRUE)
+hmax = max(c(hmax, unlist(tlt$trees[[1]]@data$height_0.95_HPD)),na.rm=TRUE)
+
+pdf(paste0("results/",patient,"_hypermutator_tree_v009_TL.pdf"),width=5,height=1.25)
 ggtree_height_bars(tlt$trees[[1]]) +
-geom_nodepoint(aes(fill= 3772-(as.numeric(height)),pch=location),size=2) +
+geom_nodepoint(fill="black",pch=21,size=2) +
 geom_tippoint(aes(fill=3772-(as.numeric(height)),pch=location),size=2) +
 geom_vline(xintercept=dates-3772, linetype="dashed") +
+#scale_fill_viridis(direction=1, limits=c(0, end=3772)) +
 scale_fill_viridis(direction=1) +
 scale_shape_manual(values=shapes) +
-labs(fill="Day", shape="Clone") 
+labs(fill="Day", shape="Clone") +
+xlim(-hmax,0)+
+guides(fill="none", shape="none")
+
+ggtree_height_bars(tlt$trees[[1]]) +
+geom_nodepoint(fill="black",pch=21,size=2) +
+geom_tippoint(aes(fill=3772-(as.numeric(height)),pch=location),size=2) +
+geom_vline(xintercept=dates-3772, linetype="dashed") +
+scale_fill_viridis(direction=1)+#, limits=c(0, end=3772)) +
+scale_shape_manual(values=shapes) +
+labs(fill="Day", shape="Clone") +
+xlim(-hmax,0)+
+guides(shape="none")
 dev.off()
+
+pdf(paste0("results/",patient,"_hypermutator_tree_v003_NO.pdf"),width=5,height=1.25)
+ggtree_height_bars(no$trees[[1]]) +
+geom_nodepoint(fill="black",pch=21,size=2) +
+geom_tippoint(aes(fill=3042-(as.numeric(height))),pch=21,size=2) +
+geom_vline(xintercept=dates[1:2]-3042, linetype="dashed") +
+scale_fill_viridis(direction=1,limits=c(0, end=3772)) +
+labs(fill="Day", shape="Clone") +
+xlim(-hmax,0)+
+guides(fill="none")
+dev.off()
+
+pdf(paste0("results/",patient,"_hypermutator_tree_v003_SC.pdf"),width=5,height=1.25)
+ggtree_height_bars(st$trees[[1]]) +
+geom_nodepoint(fill="black",pch=21,size=2) +
+geom_tippoint(aes(fill=3772-(as.numeric(height)),pch=location),size=2) +
+geom_vline(xintercept=dates-3772, linetype="dashed") +
+scale_fill_viridis(direction=1, limits=c(0, end=3772)) +
+scale_shape_manual(values=shapes) +
+labs(fill="Day", shape="Clone") +
+xlim(-hmax,0)+
+guides(fill="none", shape="none")
+dev.off()
+
+pdf(paste0("results/",patient,"_hypermutator_tree_v003_UC.pdf"),width=5,height=1.25)
+ggtree_height_bars(uc$trees[[1]]) +
+geom_nodepoint(fill="black",pch=21,size=2) +
+geom_tippoint(aes(fill=3772-(as.numeric(height)),pch=location),size=2) +
+geom_vline(xintercept=dates-3772, linetype="dashed") +
+scale_fill_viridis(direction=1, limits=c(0, end=3772)) +
+scale_shape_manual(values=shapes) +
+labs(fill="Day", shape="Clone") +
+guides(fill="none", shape="none")
+dev.off()
+
+
 
 
 mintl = min(3772-(as.numeric(tlt$trees[[1]]@data$height)))
@@ -132,9 +183,19 @@ scale_shape_manual(values=shapes) +
 labs(fill="Day", shape="Strain")
 dev.off()
 
+# TODO rerun!
 pdf("results/distance_tree_gd_big.pdf", width=60,height=2)
 plotTrees(gd, scale=10)[[1]] +
 geom_tippoint(aes(fill=sample_time,pch=location),size=2) +
+scale_fill_viridis(direction=1, limits=c(mintl, end=3772)) +
+scale_shape_manual(values=shapes) +
+labs(fill="Day", shape="Strain")
+dev.off()
+
+# TODO rerun!
+pdf("results/distance_tree_gd_mid.pdf", width=15,height=4)
+plotTrees(gd, scale=100)[[1]] +
+geom_tippoint(aes(fill=sample_time,pch=location),size=4) +
 scale_fill_viridis(direction=1, limits=c(mintl, end=3772)) +
 scale_shape_manual(values=shapes) +
 labs(fill="Day", shape="Strain")
@@ -209,6 +270,12 @@ gridExtra::grid.arrange(g1, g2, ncol=1)
 dev.off()
 
 select(dates, run, mean, X95.HPDlo, X95.HPDup)
+#  run       mean X95.HPDlo X95.HPDup
+#1  TL  -6035.098 -3924.335  -8144.55
+#2  SC    -53.512   -32.316    -75.42
+#3  UC -21505.180   -13.937 -82504.70
+#4  NS  -5508.158 -2164.427  -9762.77
+
 
 dates %>%
 	group_by(run) %>%
@@ -217,7 +284,7 @@ dates %>%
 #  <fct>      <dbl>           <dbl>           <dbl>
 #1 UC       -58.9           -0.0382        -226.   
 #2 SC        -0.147         -0.0885          -0.207
-#3 TL       -14.8           -9.79           -20.6  
+#3 TL       -16.5          -10.8            -22.3  
 #4 NS       -15.1           -5.93           -26.7  
 
 dates %>%
@@ -225,8 +292,8 @@ dates %>%
 	summarize(mean, X95.HPDlo, X95.HPDup)
 #1 UC    -21505.      -13.9  -82505. 
 #2 SC       -53.5     -32.3     -75.4
-#3 TL     -5420.    -3574.    -7515. 
-#4 NS     -5508.    -2164.    -9763.
+#3 TL     -6035.    -3924.    -8145. 
+#4 NS     -5508.    -2164.    -9763. 
 
 
 plotTrees(tlt, node_nums=TRUE)

@@ -96,16 +96,16 @@ Hgd = readRDS(paste0("intermediates/",patient,"_gd_H_tree.rds"))
 allgd = readRDS(paste0("intermediates/",patient,"_gd_HN_tree.rds"))
 
 runs = c(
-    "ucld",
-    "typelinked-est-irrev",
-    "strict"
+    "typelinked-est-irrev"#,
+    #"ucld",
+   # "strict"
         )
 
 # TODO make sure consistnet with new templates
 templates = c(
-    "typelinked-est-irrev"=paste0("templates/TraitLinkedExpectedOccupancy_EstimatedTraitClockRates_EmpFreq_Constant.xml"),
+    "typelinked-est-irrev"=paste0("templates/TypeLinkedExpectedOccupancy_FixedTraitClockRates_EmpFreq_Pop1.xml"),
     "strict"=paste0("templates/StrictClock_AncestralReconstruction_EmpFreq_Constant.xml"),
-    "ucld"="templates/UCRelaxedClock_AncestralReconstruction_EstTraitClockRates_EmpFreq_Constant.xml")
+    "ucld"="templates/UCRelaxedClock_AncestralReconstruction_EmpFreq_Constant.xml")
 
 ignore = c("traitfrequencies" ,"freqParameter", "rateCategories")
 
@@ -131,7 +131,7 @@ for(run in runs){
     trees = getTimeTreesIterate(allgd, beast=beast, 
         trait="location", time="sample_time",
         dir=paste0("~/Documents/beast_cancer/"), 
-        id=paste0(run,"_v003_germline"), 
+        id=paste0(run,"_v009_germline"), 
         template=xtemplate, nproc=1, 
         mcmc_length=mcmc_length,
         iterations=iterations,
@@ -153,11 +153,16 @@ for(run in runs){
         TRANSITION_RATE_ALPHA_2=TRANSITION_RATE_ALPHA_2,
         TRANSITION_RATE_BETA_1=TRANSITION_RATE_BETA_1,
         TRANSITION_RATE_BETA_2=TRANSITION_RATE_BETA_2,
-        seed=seed, ignore=ignore, germline_range = c(-100000, 100000))
+        seed=seed, ignore=ignore, 
+        TRANSITION_RATE_1_INIT=1.0,
+        TRANSITION_RATE_2_INIT=1.0,
+        TYPE_SWITCH_INIT=0.004,
+        TYPE_SWITCH_ALPHA=0.001,
+        TYPE_SWITCH_BETA=5.0)
 
-    saveRDS(trees, paste0("intermediates/",run,"_v003_germline_trees.rds"))
+    saveRDS(trees, paste0("intermediates/",run,"_v009_germline_trees.rds"))
     plots = plotTrees(trees, tips="location", nodes=TRUE, scale=108)
-    treesToPDF(plots,paste0("results/",run,"_v003_germline_trees.pdf"))
+    treesToPDF(plots,paste0("results/",run,"_v009_germline_trees.pdf"))
 }
 
 

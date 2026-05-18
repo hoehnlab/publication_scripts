@@ -1,6 +1,6 @@
 # Kenneth B. Hoehn
 # 9/19/25
-# Run TyCHE analysis on Pseudomonas data
+# Make figures from pseudomonas data
 
 library(dowser)
 library(dplyr)
@@ -49,17 +49,18 @@ ggtree_height_bars = function(tr, color="blue", alpha=0.4, size=1.5){
 }
 
 # read in TreeAnnotator output
-t = readRDS(paste0("intermediates/typelinked-est-irrev_v003_trees.rds"))
+t = readRDS(paste0("intermediates/typelinked-est-irrev_v009_trees.rds"))
 s = readRDS(paste0("intermediates/strict_v003_trees.rds"))
 u = readRDS(paste0("intermediates/ucld_v003_trees.rds"))
 
-dates = c(0, 9, 50, 66, 76)
+dates = c(0, 9, 50, 66, 76,101)
 labs = c(
 "Admission",
 "Intubation",
 "Sepsis",
 "Ab completion",
-"Hypermutator detect"
+"Hypermutator detect",
+"last"
 	)
 
 tree_height = max(as.numeric(t$trees[[1]]@data$height))
@@ -110,6 +111,19 @@ scale_fill_viridis(direction=1, limits=c(0, end=101)) +
 scale_shape_manual(values=shapes) +
 labs(fill="Day", shape="Strain") 
 
+revts(ggtree(s$trees[[1]])) +
+geom_nodepoint(aes(fill=101 - (as.numeric(height)),pch=location),size=2) +
+geom_tippoint(aes(fill=101 - (as.numeric(height)),pch=location),size=2) +
+#geom_vline(xintercept=dates - 101, linetype="dashed") +
+#geom_text(label=labs[1],x=dates[1]-101, y=10, angle=90,check_overlap=TRUE)+
+#geom_text(label=labs[2],x=dates[2]-101, y=10, angle=90,check_overlap=TRUE)+
+#geom_text(label=labs[3],x=dates[3]-101, y=10, angle=90,check_overlap=TRUE) +
+#geom_text(label=labs[4],x=dates[4]-101, y=10, angle=90,check_overlap=TRUE) +
+#geom_text(label=labs[5],x=dates[5]-101, y=10, angle=90,check_overlap=TRUE) +
+scale_fill_viridis(direction=1, limits=c(0, end=101)) +
+scale_shape_manual(values=shapes) +
+labs(fill="Day", shape="Strain") 
+
 dev.off()
 
 
@@ -142,7 +156,7 @@ data = tibble(taxa=names(seqs))
 data$timepoint = as.numeric(sapply(namesplit, function(x)x[4])) + 46
 data$hypermutator = sapply(namesplit, function(x)x[2])
 
-pdf("results/distance_tree_daylight.pdf", width=6,height=2)
+pdf("results/distance_tree_daylight_HKY.pdf", width=6,height=2)
 stree = fit$tree
 stree$edge.length = stree$edge.length*length(seqs[[1]])
 ggtree(stree, layout="daylight") %<+% data +
@@ -153,7 +167,7 @@ labs(fill="Day", shape="Strain") +
 geom_treescale(width=25)
 dev.off()
 
-pdf("results/distance_tree_daylight_big.pdf", width=60,height=20)
+pdf("results/distance_tree_daylight_big_HKY.pdf", width=60,height=20)
 stree = fit$tree
 stree$edge.length = stree$edge.length*length(seqs[[1]])
 ggtree(stree, layout="daylight") %<+% data +
@@ -169,7 +183,7 @@ hl = readRDS("intermediates/htree.rds")$parameters[[1]]
 hl$run = "HL"
 nl = readRDS("intermediates/ntree.rds")$parameters[[1]]
 nl$run = "NL"
-tl = readRDS("intermediates/typelinked-est-irrev_v003_trees.rds")$parameters[[1]]
+tl = readRDS("intermediates/typelinked-est-irrev_v009_trees.rds")$parameters[[1]]
 tl$run = "TL"
 sc = readRDS("intermediates/strict_v003_trees.rds")$parameters[[1]]
 sc$run = "SC"
@@ -229,34 +243,34 @@ dev.off()
 heights %>% 
     group_by(run) %>%
     summarize(101-mean, (101-mean)/365)
-# UC         -4270.            -11.7   
-# SC        -15110.            -41.4   
-# TL            14.4             0.0395
-# HL            40.3             0.110 
-# NL            35.4             0.0970
+#1 UC         -4270.            -11.7   
+#2 SC        -15110.            -41.4   
+#3 TL            14.1             0.0387
+#4 HL            40.3             0.110 
+#5 NL            35.4             0.0970
 
 101 - as.numeric(filter(tl, item=="TreeHeight")$X95.HPDlo)
-# 23.85816
+# 24.1708
 101 - as.numeric(filter(tl, item=="TreeHeight")$X95.HPDup)
-# 3.38773
+# 3.0795
 
 rates %>% 
     group_by(run) %>%
     select(mean)
-#TL    0.00369  
-#TL    0.000238 
-#HL    0.00369  
-#NL    0.000238 
-#SC    0.0000546
-#UC    0.00325  
+#1 TL    0.00369  
+#2 TL    0.000238 
+#3 HL    0.00369  
+#4 NL    0.000238 
+#5 SC    0.0000546
+#6 UC    0.00325  
 
 hmrca = ape::getMRCA(t$trees[[1]]@phylo, 
     tip=filter(t$data[[1]]@data, location=="H")$sequence_id)
 
 hnode = filter(t$trees[[1]]@data, node==hmrca)
 101 - as.numeric(hnode$height)
-# 46.45745
+# 46.52153
 101 - as.numeric(hnode$height_0.95_HPD[[1]])
-# 50.12934 42.61454
+# 50.49623 42.52766
 
 
