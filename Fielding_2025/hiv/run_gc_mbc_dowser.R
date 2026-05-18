@@ -13,14 +13,15 @@ library(treeio)
 print(sessionInfo())
 
 beast = "~/Programs/beast/bin"
+#beast = "/Applications/BEAST\ 2.7.7/bin"
 trait_list <- c("germinal_center", "other")
 patient = "HIV1"
 minseqs = 20
-cores = 8
+cores = 12
 max_group = 25
 resample = FALSE
 regd_trees = FALSE
-runid = "v003"
+runid = "v009op4"
 patients = c("HIV1", "HIV3", "HIV2")
 mcmc_length = 1e+08
 iterations = 15
@@ -30,6 +31,7 @@ t = read.csv("data/allclock_results_clustered.csv")
 me = filter(t, p < 0.05)
 liao = filter(me, study=="Liao_2013")
 gclock = mean(liao$slope)
+
 
 patients = commandArgs(trailingOnly=TRUE)[1]
 print(patients)
@@ -88,47 +90,64 @@ for(patient in patients){
 		treesToPDF(p, file=paste0("results/",patient,"_gd_parsimony_trees.pdf"), ncol=1,nrow=2)
 	}
 
+
 	runs = c(
-	"strict",
-	"typelinked-irrev",
-	"typelinked-eo-est",
-	"ucld"
+	"typelinked-irrev"
 		)
 
 	templates = c(
-	"strict"=paste0("templates/StrictClock_AncestralReconstruction_FixedClockRate_EmpFreq.xml"),
-	"typelinked-irrev"=paste0("templates/TraitLinkedExpectedOccupancy_FixedTraitClockRates_EmpFreq.xml"),
-	"typelinked-eo-est"="templates/TraitLinkedExpectedOccupancy_EstTraitClockRates_EmpFreq.xml",
-	"ucld"="templates/UCRelaxedClock_AncestralReconstruction_FixedTraitClockRates_EmpFreq.xml"
+	"typelinked-irrev"=paste0("templates/TypeLinkedExpectedOccupancy_EstTraitClockRates_EmpFreq_TSunfixed.xml"),
 		)
 
 	ignore = c("traitRates", "typeLinkedRates", "freqParameter", "clockRate", "traitfrequencies", "geneticClockRate",
-		"rateCategories")
+		"rateCategories", "typeSwitchClockRate", "typeSwitchRate")
+
+	flipped_clones = clones
+	for(i in 1:nrow(clones)){
+		flipped_clones$data[[i]]@data$location[clones$data[[i]]@data$location =="germinal_center"] = "zgerminal_center"
+	}
 
 	for(run in runs){
 		xtemplate = templates[[run]]
 		print(paste(patient, xtemplate))
 
+		dclones = clones
+		if(run == "typelinked-eo-estflip"){
+			dclones = flipped_clones
+		}
+
 		# iterate until all parameters in all clones ESS > 100 (or max_iter reached)
 		TRAIT_MEAN_1 = gclock
 		TRAIT_MEAN_2 = 0.000001
+		if(run == "typelinked-eo-estflip"){
+			TRAIT_MEAN_2 = gclock
+			TRAIT_MEAN_1 = 0.000001
+		}
 		RATE_INDICATORS = "1 1"
 		TRAIT_RATE_SIGMA_1 = TRAIT_MEAN_1 * 0.01
-		TRAIT_RATE_SIGMA_2 = 0.001
+		TRAIT_RATE_SIGMA_2 = TRAIT_MEAN_2 * 0.01
 		TRANSITION_RATE_ALPHA_1 = 0.1
 		TRANSITION_RATE_ALPHA_2 = 0.1
 		TRANSITION_RATE_BETA_1 = 1.0
 		TRANSITION_RATE_BETA_2 = 1.0
-		if(run == "typelinked-irrev"){
+		if(grepl("irrev",run)){
 			RATE_INDICATORS = "1 0"
 		}
-			
-		trees = getTimeTreesIterate(clones, beast=beast, trait="location", time="time",
+
+		tsrate = 1/52
+		IS = 0
+		if(run == "typelinked-eo-esti1"){
+			IS = 1
+		}
+
+		maxweeks = NULL
+
+		trees = getTimeTreesIterate(dclones, beast=beast, trait="location", time="time",
 			dir=paste0("~/Documents/hiv_beast/", patient), id=paste0(run,"_",runid), 
 			template=xtemplate, nproc=cores, 
 			log_every="auto",
-			INITIAL_STATE=0,
-			KAPPA_PRIOR_M=0.67,
+			INITIAL_STATE=IS,
+			KAPPA_PRIOR_M=0.67,	
 			KAPPA_PRIOR_S = 0.2,
 			CLOCK_RATE_INIT=TRAIT_MEAN_1,
 			TRAIT_RATE_MEAN_1=TRAIT_MEAN_1,
@@ -146,16 +165,26 @@ for(patient in patients){
 			mcmc_length=mcmc_length,
 			log_target=2000,
 			ess_cutoff=200, ignore=ignore,
-			iterations=iterations, seed=seed)
+			iterations=iterations, seed=seed,
+			max_start_date=maxweeks,
+			TYPE_SWITCH_INIT=tsrate,
+			TYPE_SWITCH_ALPHA=1,
+			TYPE_SWITCH_BETA=1,
+			TRANSITION_RATE_1_INIT=1,
+			TRANSITION_RATE_2_INIT=1)
+
 
 		saveRDS(trees, paste0("intermediates/",patient,"_",runid,"_",run,".trees.rds"))
-		plots = plotTrees(trees, tips="location", nodes=TRUE, scale=52)
+		if(grepl("type", run)){
+			plots = plotTrees(trees, tips="location", nodes=TRUE, scale=52, show_occupancy=TRUE,
+			palette=c("germinal_center"="red", "other+germinal_center"="purple", "other"="blue"))
+		}else{
+			plots = plotTrees(trees, tips="location", nodes=TRUE, scale=52, 
+			palette=c("germinal_center"="red", "other+germinal_center"="purple", "other"="blue"))
+		}
 		treesToPDF(plots,paste0("results/",patient,"_",runid,"_",run,".trees.pdf"))
 	}
 }
-
-
-
 
 
 
