@@ -2,6 +2,7 @@ library(airr)
 library(dplyr)
 library(treestats)
 library(dowser)
+source("./sampleClonesEvenly.R")
 
 set.seed(847445)
 downsample_size <- 40
@@ -26,7 +27,7 @@ hiv_trees <- filter(hiv_trees, seqs > min_seqs)
 hiv_clones <- hiv_trees[,1:6]
 
 # for fair comparison with simble data, sample a set number of sequences per clone, sampling evenly across timepoints
-hiv_clones <- sampleClones(hiv_clones, size = downsample_size, group="time")
+hiv_clones <- sampleClonesEvenly(hiv_clones, size = downsample_size, group = "time")
 
 number_of_hiv_clones <- length(unique(hiv_clones$clone_id))
 
@@ -61,13 +62,13 @@ make_imbalance_rds <- function(input_file, output_file, model) {
 }
 
 # process selection simble data
-selection_folder = "/Volumes/HoehnK/jessie/simble-validation/200gen_selection233853/"
+selection_folder = "200gen_selection233853/"
 file <- paste0(selection_folder, "all_samples_airr.tsv")
 outfile <- "~/simble-validation/imbalance_metric_selection_trees.rds"
 make_imbalance_rds(file, outfile, "selection")
 
 # process neutral simble data
-neutral_folder = "/Volumes/HoehnK/jessie/simble-validation/200gen_neutral866228/"
+neutral_folder = "200gen_neutral866228/"
 file <- paste0(neutral_folder, "all_samples_airr.tsv")
 outfile <- "~/simble-validation/imbalance_metric_neutral_trees.rds"
 make_imbalance_rds(file, outfile, "neutral")

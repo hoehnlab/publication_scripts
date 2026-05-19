@@ -1,7 +1,7 @@
 library(dplyr)
 library(airr)
 
-folder <- "/Volumes/HoehnK/jessie/simble-validation/150gen_selection_100clones_differentiation_study_seed344276/"
+folder <- "150gen_selection_100clones_differentiation_study_seed344276/"
 simble_data <- read_rearrangement(paste0(folder, "all_samples_airr.tsv", sep=""))
 
 simble_trees <- treeio::read.beast(paste0(folder, "all_simplified_trees.nex"))

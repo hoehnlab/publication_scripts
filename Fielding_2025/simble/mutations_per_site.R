@@ -1,7 +1,8 @@
 library(airr)
 library(dplyr)
+library(ggplot2)
 
-folder = "/Volumes/HoehnK/jessie/simble-validation/mutations_per_site_754659"
+folder = "mutations_per_site_754659"
 file = paste0(folder, "/selection/all_samples_airr.tsv")
 file_neutral = paste0(folder, "/neutral/all_samples_airr.tsv")
 file_uniform = paste0(folder, "/uniform/all_samples_airr.tsv")

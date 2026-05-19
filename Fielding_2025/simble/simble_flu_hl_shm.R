@@ -9,6 +9,7 @@ library(ggtree)
 library(ggExtra)
 library(ggpubr)
 library(viridis)
+source("./flu_data_processing.R")
 
 
 references <- readIMGT(dir = "~/vdj")
@@ -18,63 +19,7 @@ flu_means_file <- "~/simble-validation/flu_data_means.rds"
 if (file.exists(flu_means_file)) {
   flu_data_means <- readRDS(flu_means_file)
 } else {
-  flu_data <- readChangeoDb("~/docker-share/bcr-db_3_airr.tsv")
-  
-  flu_data <- flu_data %>% filter(productive)
-
-  multi_heavy <- table(filter(flu_data, locus == "IGH")$cell_id)
-  multi_heavy_cells <- names(multi_heavy)[multi_heavy > 1]
-  
-  flu_data <- filter(flu_data, !cell_id %in% multi_heavy_cells)
-  
-  # split cells by heavy and light chains
-  heavy_cells <- filter(flu_data, locus == "IGH")$cell_id
-  light_cells <- filter(flu_data, locus == "IGK" | locus == "IGL")$cell_id
-  no_heavy_cells <- light_cells[which(!light_cells %in% heavy_cells)]
-  
-  flu_data <- filter(flu_data, !cell_id %in% no_heavy_cells)
-  
-  dist_nearest <- distToNearest(filter(flu_data, locus == "IGH"), nproc = 1)
-  p1 <- ggplot(subset(dist_nearest, !is.na(dist_nearest)),
-               aes(x = dist_nearest)) +
-    theme_bw() +
-    xlab("Hamming distance") + ylab("Count") +
-    scale_x_continuous(breaks = seq(0, 1, 0.1)) +
-    geom_histogram(color = "white", binwidth = 0.02) +
-    theme(axis.title = element_text(size = 18))
-  plot(p1)
-  
-  # find threshold for cloning automatically
-  threshold_output <- shazam::findThreshold(dist_nearest$dist_nearest,
-                                            method = "gmm", model = "gamma-norm",
-                                            cutoff = "user", spc = 0.995)
-  threshold <- threshold_output@threshold
-  print(threshold)
-  # TODO: make a note of this threshold
-  
-  plot(threshold_output, binwidth = 0.02, silent = TRUE) +
-    theme(axis.title = element_text(size = 18))
-  
-  results <- hierarchicalClones(flu_data, cell_id = 'cell_id',
-                                threshold = threshold, only_heavy = TRUE,
-                                split_light = FALSE, summarize_clones = FALSE, nproc=3)
-  
-  
-  # data <- filter(data, nchar(SEQUENCE_IMGT) == nchar(GERMLINE_IMGT))
-  
-  
-  example <- resolveLightChains(results)
-  
-  resolved <- createGermlines(example, references = references, clone = "clone_subgroup_id", nproc = 1)
-  
-  hlclones = formatClones(resolved,chain="HL",
-                          split_light=TRUE,heavy="IGH",cell="cell_id",
-                          trait=c("vj_gene","c_call"), minseq = 5, collapse = TRUE, nproc = 3)
-  
-  # TODO make a note that we're only using clones that had at least 5 distinct seqs
-  # TODO note that we are processing this data in the same way as Jensen et al. ....
-  keep_clone_ids <- unique(hlclones$clone_id)
-  results <- filter(resolved, clone_subgroup_id %in% keep_clone_ids)
+  results <- getProcessedFluResults()
   shmu_h <- filter(results, locus == "IGH")
   shmu_l <- filter(results, locus != "IGH")
   heavy_shmu <- observedMutations(shmu_h,
@@ -116,7 +61,6 @@ if (file.exists(flu_means_file)) {
 
 means_flu <- ggplot(flu_data_means, aes(x = means_heavy, y = means_light)) + theme_bw() + 
   geom_point(aes(colour = NA), alpha = 0.7) +
-  # geom_point(colour = "darkgrey", alpha = 0.7) + 
   geom_abline(colour = "black") + xlab("Heavy Chain SHM") +
   xlim(0, 0.146) + 
   ylim(0,0.146) +
@@ -128,15 +72,15 @@ means_flu<- ggMarginal(means_flu, colour = "darkgrey")
 means_flu
 
 ################################################
-file = "/Volumes/HoehnK/jessie/simble-validation/500gen_selection_150clones_seed253437/all_samples_airr.tsv"
+file = "200gen_selection_150clones_seed253437/all_samples_airr.tsv"
 
 shm_full_data <- airr::read_rearrangement(file)
 times <- c()
 max <- 10
 for (i in 1:max) {
-  times <- append(times, rep(i*500/max, 150/max))
+  times <- append(times, rep(i*200/max, 150/max))
 }
-# times <- c(rep(100, 150/6), rep(150, 150/6), rep(200, 150/6), rep(250, 150/6), rep(300, 150/6), rep(350, 150/6))
+
 names(times) <- 1:150
 shm_full_data <- shm_full_data %>%
   split(shm_full_data$clone_id) %>%
@@ -206,7 +150,7 @@ means_sim <- ggplot(sim_data_means, aes(x = means_heavy, y = means_light)) + the
   ylim(0,0.146) +
   ylab("Light Chain SHM") + ggtitle("Simble") +
   labs(colour = "Sample time \n(generations)") +
-  scale_colour_viridis(direction=1, limits=c(0, 500)) +
+  scale_colour_viridis(direction=1, limits=c(0, 200)) +
   theme_bw() +
   theme(legend.key.size=unit(0.3, 'cm'))
 
@@ -218,9 +162,6 @@ means_sim <- means_sim + theme(legend.position = "hidden")
 means_sim<- ggMarginal(means_sim, colour = "darkgrey")
 means_sim
 
-# shm_plot_legend <- plot_grid(means_sim, means_flu, nrow=1, legend=legend, rel_widths = c(1, 1, 0.4))
-# shm_plot_legend
-# shm_plot_legend <- ggarrange(means_sim, means_flu, ggplotify::as.ggplot(legend), nrow=1, widths=c(1, 1, 0.3))
 shm_plot_legend <- cowplot::plot_grid(means_sim, means_flu, legend, rel_widths=c(1, 1, 0.5), rel_heights=c(1, 1, 0.5), nrow=1)
 shm_plot_legend
 
@@ -239,3 +180,4 @@ ggsave(plot=shm_plot,
 saveRDS(shm_plot, file = "~/simble-validation/shm_plot.rds")
 saveRDS(means_sim, file = "~/simble-validation/means_sim.rds")
 saveRDS(means_flu, file = "~/simble-validation/means_flu.rds")
+

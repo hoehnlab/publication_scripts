@@ -16,15 +16,16 @@ font_size <- theme(axis.text = element_text(size=7),
 
 legend_size <- theme(legend.key.size = unit(0.25, "cm"), legend.background = element_rect(fill = "transparent"))
 
-selection_strength_plot <- readRDS("~/simble-validation/selection_strength_with_selection_plot.rds")
+selection_strength_plot <- readRDS("~/simble-validation/all_baselines_plot.rds")
 
 tweaked_selection <- selection_strength_plot + ggtitle("") + 
   geom_vline(xintercept=0, linetype="dashed", color="black", linewidth=0.25) + theme_bw() + 
-  labs(color = "Time (gen)", x = expression(paste("Selection strength (", Sigma, ")"))) +
+  labs(color = "Time (gen)", linetype="", x = expression(paste("Selection strength (", Sigma, ")"))) +
   scale_color_viridis(discrete = TRUE, direction=-1) +
   theme(panel.grid.major.y = element_blank()) +
   font_size + legend_size + theme(legend.box.margin = margin(t=-7, r=0, b=-5, l=0, unit="mm")) + 
   theme(legend.position = "top") +
+  theme(axis.title.x = element_text(margin=margin(t=-1))) +
   guides(colour = guide_legend(direction="horizontal", reverse=TRUE))
 tweaked_selection
 
@@ -32,13 +33,11 @@ neutral_selection_strength_plot <- readRDS("~/simble-validation/selection_streng
 
 tweaked_selection_neutral <- neutral_selection_strength_plot + ggtitle("") + 
   geom_vline(xintercept=0, linetype="dashed", color="black", linewidth=0.25) + theme_bw() + 
-  # theme(panel.grid.major = element_line(colour="darkgrey", size=0.5)) +
   labs(color = "Time (gen)", x = expression(paste("Selection strength (", Sigma, ")"))) +
   scale_color_viridis(discrete = TRUE, direction=-1) +
   theme(panel.grid.major.y = element_blank()) +
   font_size + legend_size + theme(legend.box.margin = margin(t=-7, r=0, b=-5, l=0, unit="mm")) + 
   theme(legend.position = "top") +
-  # ylim(layer_scales(tweaked_selection)$y$range$range) +
   guides(colour = guide_legend(direction="horizontal", reverse=TRUE))
 tweaked_selection_neutral
 
@@ -46,7 +45,7 @@ tweaked_selection_neutral
 ######## Migration and cell types plots
 
 celltype_levels = c("Memory B Cell", "Plasma Cell", "Default")
-celltype_palette = c("#FFB000", "#648FFF", "#B0B0B0")
+celltype_palette = c("#0173B2", "#E69F00", "#B0B0B0")
 
 names(celltype_palette) = celltype_levels
 
@@ -92,7 +91,6 @@ affinity_crossreactivity_plot
 flu_data_means <- readRDS(flu_means_file)
 means_flu <- ggplot(flu_data_means, aes(x = means_heavy, y = means_light)) + theme_bw() + 
   geom_point(aes(colour = NA), alpha = 0.7) +
-  # geom_point(colour = "darkgrey", alpha = 0.7) + 
   geom_abline(colour = "black") + xlab("Heavy Chain SHM") +
   xlim(0, 0.146) + 
   ylim(0,0.146) +
@@ -103,7 +101,6 @@ means_flu <- ggplot(flu_data_means, aes(x = means_heavy, y = means_light)) + the
     panel.background = element_rect(fill = "transparent", color = NA), # Background of the main panel
     plot.background = element_rect(fill = "transparent", color = NA)    # Background of the entire plot area
   ) +
-  # theme(plot.title = element_text(vjust=-2.5)) 
   theme(plot.title = element_blank()) +
   annotate("text", x = -Inf, y = Inf, label = "Influenza",
            hjust = -0.1, vjust = 1.2, size = 3)
@@ -121,7 +118,7 @@ means_sim <- ggplot(sim_data_means, aes(x = means_heavy, y = means_light)) + the
   ylab("Light Chain SHM") +
   ggtitle("SimBLE")+
   labs(colour = "Time \n(gen)") +
-  scale_colour_viridis(direction=1, limits=c(0, 500), breaks=c(100, 300, 500)) +
+  scale_colour_viridis(direction=1, limits=c(0, 200), breaks=c(40, 120, 200)) +
   theme_bw() + font_size + legend_size + theme(
     panel.background = element_rect(fill = "transparent", color = NA), # Background of the main panel
     plot.background = element_rect(fill = "transparent", color = NA)    # Background of the entire plot area

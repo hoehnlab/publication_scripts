@@ -4,11 +4,8 @@ library(ggplot2)
 library(scales)
 library(ggpubr)
 
-file = "/Volumes/HoehnK/jessie/simble-validation/cross_reactivity_226348/affinity_data.csv"
+file = "20cross_reactivity_226348/affinity_data.csv"
 data_affinity = read.csv(file)
-# filter to 10 clones
-clone_ids = unique(data_affinity$clone_id)
-data_affinity = filter(data_affinity, clone_id %in% clone_ids[1:10])
 
 affinity_avg <- data_affinity %>%
   mutate(celltype = recode(celltype, "plasma_cell" = "Plasma Cell", "memory_b_cell" = "Memory B Cell", "gc_b_cell" = "GC B Cell")) %>%
@@ -19,7 +16,7 @@ affinity_avg <- data_affinity %>%
 affinity_avg$clone_id <- as.factor(affinity_avg$clone_id)
 
 celltype_levels = c("Memory B Cell", "Plasma Cell", "GC B Cell")
-celltype_palette = c("#648FFF", "#FFB000", "#B0B0B0")
+celltype_palette = c("#0173B2", "#E69F00", "#B0B0B0")
 
 names(celltype_palette) = celltype_levels
 
@@ -30,9 +27,9 @@ format_plot = function(x, accuracy) {
     scale_y_continuous(trans = log2_trans(),
                        breaks = trans_breaks("log2", function(x) 2^x),
                        labels = trans_format(
-                         "log2", 
+                         "log2",
                          math_format(
-                           2^.x, 
+                           2^.x,
                            format=function(x){number(x, accuracy = accuracy)}
                          )
                        ),

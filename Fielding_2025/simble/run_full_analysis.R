@@ -4,7 +4,7 @@ library(devtools)
 remove.packages("dowser")
 
 # install dev version of dowser with sampleClones function
-devtools::install_github("immcantation/dowser", ref="3c7a91f25930536e9319e8a052b3e213cf3d3419")
+devtools::install_github("immcantation/dowser")
 
 # source all the individual scripts to process data for each figure
 
@@ -14,6 +14,7 @@ source("simble-vs-hiv-trees.R")
 
 # baseline plots (for selection in fig 2 and neutral for supplemental)
 source("simble-validation-baseline.R")
+source("baseline_with_hiv_flu.R")
 
 # shm plots
 source("simble_flu_hl_shm.R")
@@ -31,7 +32,7 @@ source("mutations_per_site.R")
 # compile them
 source("compile_plots.R")
 
-print_loaded_packages <- function() {
+print_loaded_packages <- function(filename="") {
   si <- sessionInfo()
   
   # attached packages
@@ -44,6 +45,6 @@ print_loaded_packages <- function() {
     paste0(pkg, " v", ver)
   }, character(1))
   
-  cat(attached_info, sep = "\n")
+  cat(attached_info, file=filename, sep = "\n")
 }
-print_loaded_packages()
+print_loaded_packages(filename="loaded_packages.txt")

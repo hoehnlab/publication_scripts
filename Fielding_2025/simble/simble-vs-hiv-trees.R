@@ -23,7 +23,7 @@ hiv_closest_to_median <- hiv_imbalance %>% slice_min(diff_from_median, n=5)
 hiv_closest_to_median <- scaleBranches(hiv_closest_to_median, edge_type = "mutations")
 # plot and format a representative tree close to median
 hiv_plots <- plotTrees(hiv_closest_to_median, scale=10)
-g1 <- ggtree(hiv_plots[[2]]$data, ladderize = TRUE, linewidth=0.4) +
+g1 <- ggtree(hiv_plots[[3]]$data, ladderize = TRUE, linewidth=0.4) +
   geom_tippoint(aes(fill=time), pch=21) +
   scale_fill_viridis() + labs(fill="Time\n(weeks)") + 
   geom_treescale(width=10)
@@ -31,7 +31,7 @@ hiv_tree <- g1 + ggtitle("Chronic HIV\nInfection")
 hiv_tree
 
 # save the clone_id of the example tree to plot later
-hiv_example_clone_id <- hiv_closest_to_median$clone_id[1]
+hiv_example_clone_id <- hiv_closest_to_median$clone_id[3]
 
 # save the tree plot
 saveRDS(hiv_tree, file = "~/simble-validation/hiv_tree.rds")
@@ -56,7 +56,7 @@ selection_tree
 saveRDS(selection_tree, file = "~/simble-validation/selection_tree.rds")
 
 # save the clone_id of the example tree to plot later
-selection_example_clone_id <- selection_closest_to_median$clone_id[2]
+selection_example_clone_id <- selection_closest_to_median$clone_id[5]
 
 
 # as above, calculate median and difference from median for simble data, and select trees closest to median
@@ -68,7 +68,7 @@ neutral_closest_to_median <- neutral_imbalance %>% slice_min(diff_from_median, n
 neutral_closest_to_median <- scaleBranches(neutral_closest_to_median, edge_type = "mutations")
 neutral_plots <- plotTrees(neutral_closest_to_median, scale=10)
 
-g1 <- ggtree(neutral_plots[[3]]$data, ladderize = TRUE, linewidth=0.4) +
+g1 <- ggtree(neutral_plots[[1]]$data, ladderize = TRUE, linewidth=0.4) +
   geom_tippoint(aes(fill=sample_time), pch=21) +
   scale_fill_viridis() + labs(fill="Time\n(gen)") + 
   geom_treescale(width=10)
@@ -84,5 +84,3 @@ neutral_example_clone_id <- neutral_closest_to_median$clone_id[1]
 example_tree_clone_ids <- c(hiv_example_clone_id, selection_example_clone_id, neutral_example_clone_id)
 names(example_tree_clone_ids) <- c("hiv", "selection", "neutral")
 saveRDS(example_tree_clone_ids, file = "~/simble-validation/example_tree_clone_ids.rds")
-
-
