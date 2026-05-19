@@ -1,17 +1,18 @@
 #############################################
 ## Hunter J. Melton and Jessie J. Fielding ##
-################## 8/28/25 ##################
+################## 12/18/25 #################
 
 # Script to simulate a recall GC reaction using simble
-# Initial GC reaction runs from generation 1-100, one other B cell is randomly chosen to wait 1000 gens,
-# then re-enters a new GC and that reaction goes from generation 1101-1200
+# Initial GC reaction runs from generation 1-100, one other B cell is randomly
+# chosen to wait 1000 gens, then re-enters a new GC and that reaction goes 
+# from generation 1101-1200. Other B cells that were "sampled" in the first 
+# reaction but not sequenced also "persist" in the other location and can be 
+# sampled again in the second reaction.
 
-import argparse
 import json
 import logging
 import os
 from time import time
-from collections import namedtuple
 from functools import partial
 from multiprocessing import Pool
 import tempfile
@@ -19,7 +20,6 @@ import tempfile
 import numpy as np
 import pandas as pd
 from simble.cell import Cell, CellType
-import simble.helper as helper
 from simble.location import LocationName, as_enum
 from simble.settings import s
 from simble.simble import process_results, set_logger
@@ -41,7 +41,7 @@ def do_simulation(i, seed, filename):
 
     if not os.path.exists(s.RESULTS_DIR):
         os.mkdir(s.RESULTS_DIR)
-    
+
     curr_results = f'{s.RESULTS_DIR}/results{i}/'
     if s.DEV and not os.path.exists(curr_results):
         os.mkdir(curr_results)
@@ -82,14 +82,17 @@ def do_simulation(i, seed, filename):
 
     to_reenter = s.RNG.choice([x for x in sampled if x not in sequenced and x.cell.location == LocationName.OTHER and x.generation == OTHER.sample_times[-1]+1], size=1, replace=False)
 
+    other_cells_to_persist = [x for x in sampled if (x.cell.location == LocationName.OTHER) and (x not in sequenced) and (x not in to_reenter)]
+
     first_end_time = max(GC.sample_times[-1], OTHER.sample_times[-1])
     new_gc_time = first_end_time + 1000
 
-    def make_new_child(node, new_generation):
+    def make_new_child(node, new_generation, make_gc=True, sample=False):
         child_cell = Cell(
             node.cell.heavy_chain.copy(),
             node.cell.light_chain.copy(),
             location=node.cell.location,
+            cell_type=CellType.DEFAULT if make_gc else node.cell.cell_type,
             created_at=new_generation)
         child_node = Node(
             child_cell,
@@ -100,6 +103,8 @@ def do_simulation(i, seed, filename):
             )
         child_cell.calculate_affinity(TARGET_PAIR)
         node.add_child(child_node)
+        if sample:
+            child_node.sampled_time = new_generation
         return child_node
 
     reentering_cells = [make_new_child(x, new_gc_time) for x in to_reenter]
@@ -118,17 +123,50 @@ def do_simulation(i, seed, filename):
     OTHER.sample_times = [new_gc_time+50, new_gc_time+100]
 
     # sample the recall reaction
-    second_sampled, second_pop_data, _ = simulate(clone_id, TARGET_PAIR, reentering_cells_gc, root, new_gc_time)
-    to_sequence = s.RNG.choice([x for x in second_sampled if x.cell.location == LocationName.OTHER and x.generation == OTHER.sample_times[0]+1], size=12, replace=False)
+    second_sampled, _, _ = simulate(clone_id, TARGET_PAIR, reentering_cells_gc, root, new_gc_time)
+
+    # randomly pick 12 cells from each time point and location to sequence
+    # for the other location, also sample from other_cells_to_persist
+
+    # OTHER LOCATION
+    # first time point
+    other_location_cell_options = [
+        x for x in second_sampled 
+        if x.cell.location == LocationName.OTHER and x.generation == OTHER.sample_times[0]+1
+        ] + other_cells_to_persist
+    to_sequence = s.RNG.choice(other_location_cell_options, size=12, replace=False)
+    # update other_cells_to_persist to remove any already chosen
+    other_cells_to_persist = [x for x in other_cells_to_persist if x not in to_sequence]
+    # ensure that any chosen cells that persisted are updated to the correct generation
+    to_sequence = [
+        x if x.generation == OTHER.sample_times[0]+1
+        else make_new_child(x, OTHER.sample_times[0], make_gc=False, sample=True)
+        for x in to_sequence
+        ]
     sequenced.extend(to_sequence)
-    to_sequence = s.RNG.choice([x for x in second_sampled if x.cell.location == LocationName.OTHER and x.generation == OTHER.sample_times[1]+1], size=12, replace=False)
+
+    # second time point
+    other_location_cell_options = [
+        x for x in second_sampled 
+        if x.cell.location == LocationName.OTHER and x.generation == OTHER.sample_times[1]+1
+        ] + other_cells_to_persist
+    to_sequence = s.RNG.choice(other_location_cell_options, size=12, replace=False)
+    # update other_cells_to_persist to remove any already chosen
+    other_cells_to_persist = [x for x in other_cells_to_persist if x not in to_sequence]
+    # ensure that any chosen cells that persisted are updated to the correct generation
+    to_sequence = [
+        x if x.generation == OTHER.sample_times[1]+1 
+        else make_new_child(x, OTHER.sample_times[1], make_gc=False, sample=True) 
+        for x in to_sequence
+        ]
     sequenced.extend(to_sequence)
+
+    # GC LOCATION first and second time points
     to_sequence = s.RNG.choice([x for x in second_sampled if x.cell.location == LocationName.GC and x.generation == GC.sample_times[0]+1], size=12, replace=False)
     sequenced.extend(to_sequence)
     to_sequence = s.RNG.choice([x for x in second_sampled if x.cell.location == LocationName.GC and x.generation == GC.sample_times[1]+1], size=12, replace=False)
     sequenced.extend(to_sequence)
 
-    end_time = max(GC.sample_times[-1], OTHER.sample_times[-1])
 
     sampled = sequenced
 

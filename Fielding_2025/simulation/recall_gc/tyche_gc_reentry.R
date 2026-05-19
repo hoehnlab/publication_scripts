@@ -1,6 +1,9 @@
 ######################
 ## Hunter J. Melton ##
-###### 8/20/2025 #####
+## Jessie J. Fielding ##
+##### 4/4/2025 #####
+
+#############
 
 # Analyzing simulated GC reentry data with TyCHE
 ##########################
@@ -13,26 +16,50 @@ library(dowser)
 library(ggtree)
 library(purrr)
 
-bcrs <- read_rearrangement("./simble_sims_gc_reentry_8_28/all_samples_airr.tsv")
+# nolint start
+
+# read in an argument for which simulation to use
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) == 0) {
+	stop("No simulation argument provided.")
+}
+
+if (length(args) == 1) {
+	stop("No folder argument provided.")
+}
+simulation_id <- args[1]
+folder_name <- args[2]
+
+if (simulation_id == "sel") {
+    # Use selection simulation data
+    bcrs <- read_rearrangement("./simble_sims_gc_reentry_12_18/all_samples_airr.tsv")
+} else if (simulation_id == "un") {
+    # Use neutral simulation data
+    bcrs <- read_rearrangement("./simble_sims_gc_reentry_uniform_neutral_12_18/all_samples_airr.tsv")
+} else {
+    stop("Invalid simulation argument provided. Use 'selection' or 'neutral'.")
+}
+
+
 bcrs_heavy <- bcrs %>% 
   filter(locus == "IGH") %>% 
-  mutate(celltype = ifelse(celltype == "default", "GC", "other")) %>%
+  mutate(celltype = ifelse(celltype == "gc_b_cell", "GC", "other")) %>%
   mutate(sample_time = as.numeric(sample_time))
-
-# Use all clones
-clones_using <- c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
-				  "11", "12", "13", "14", "15", "16", "17", "18", "19", "20")
-bcrs_heavy <- bcrs_heavy %>%
-	filter(clone_id %in% clones_using)
 
 # Get array ID to run different models in parallel
 job.id <- as.numeric(Sys.getenv("SLURM_ARRAY_TASK_ID"))
 
 # Set the path to the xml-writer directory
-xml_writer_path <- "../../xml-writer/"
+xml_writer_path <- "~/xml-templates/"
 
-# Set up the path to the beast executable
-beast_path = "~/software/beast/bin/"
+beast_path = "~/beast/bin/"
+
+sc_dir <- "./get_GC_rates_SC"
+if (simulation_id == "un") {
+    sc_dir <- paste0(sc_dir, "_uniform_neutral")
+}
+sc_dir <- paste0(sc_dir, "/")
+
 
 # Other variables
 first_gc_end_time <- 100
@@ -64,9 +91,9 @@ if (job.id == 1){
 		ignore = c("freqParameter"),
 		beast = beast_path, 
 		time = "sample_time",
-		dir = "./get_GC_rates_SC/",
+		dir = sc_dir,
 		id = "get_GC_rates_SC", 
-		template = paste0(xml_writer_path, "templates/custom/StrictClock/StrictClock_Standard_EmpFreq.xml"),
+		template = paste0(xml_writer_path, "StrictClock/StrictClock_Standard_EmpFreq.xml"),
 		nproc = 20,
 		include_germline = TRUE,
 		mcmc_length = 100000000,
@@ -78,19 +105,20 @@ if (job.id == 1){
 		seed = 89243 + job.id
 	)
 
-	saveRDS(trees, "./get_GC_rates_SC/get_GC_rates_SC_trees.rds")
+	saveRDS(trees, paste0(sc_dir, "get_GC_rates_SC_trees.rds"))
 
 } else { # Do the actual analysis
 
 	# Figure out the clock rates for the GC B cells for each clone
 	# Make sure the file exists first
-	if(!file.exists("./get_GC_rates_SC/get_GC_rates_SC_trees.rds")) {
+	if(!file.exists(paste0(sc_dir, "get_GC_rates_SC_trees.rds"))) {
+		print(paste0("Looking for file at: ", paste0(sc_dir, "get_GC_rates_SC_trees.rds")))
 		stop("Where's the SC GC rates file?")
 	}
-	SC_trees <- readRDS("./get_GC_rates_SC/get_GC_rates_SC_trees.rds")
+	SC_trees <- readRDS(paste0(sc_dir, "get_GC_rates_SC_trees.rds"))
 
-	# Filter to whatever clones we're currently using only
-	SC_trees <- SC_trees %>% filter(clone_id %in% clones_using)
+	# # Filter to whatever clones we're currently using only
+	# SC_trees <- SC_trees %>% filter(clone_id %in% clones_using)
 
 	# Make sure (some of) the SC trees have converged
 	SC_trees_conv <- SC_trees %>% filter(below_ESS == 0)
@@ -110,42 +138,58 @@ if (job.id == 1){
 	gc_clock_rate_mean <- mean(gc_clock_rates, na.rm = TRUE)
 	
 	# Format clones
-	f_clones <- formatClones(bcrs_heavy, traits = c("celltype", "sample_time"), germ = "germline_alignment")
+	if (simulation_id == "un") {
+		f_clones <- formatClones(bcrs_heavy, filterstop=FALSE, traits = c("celltype", "sample_time"), germ = "germline_alignment")
+	} else {
+		f_clones <- formatClones(bcrs_heavy, traits = c("celltype", "sample_time"), germ = "germline_alignment")
+	}
 
 	# Build initial genetic distance trees
 	trees <- getTrees(f_clones, build = "pml", sub_model= "HKY", nproc = 10)
 
+
+	TRANSITION_RATE_ALPHA <- "0.1"
+	TRANSITION_RATE_BETA <- "1.0"
+
+	model_name_insert <- ""
+
+
 	# Set up to run analysis
 	input_data <- tibble(
-		model = c("expectedOccupancy_FixedTraitClockRates_EmpFreq", "expectedOccupancy_EstTraitClockRates_EmpFreq",
-					"instantSwitch_EstTraitClockRates_EmpFreq", 
-					"strictClock_AncestralReconstruction_EmpFreq", "UCRelaxedClock_AncestralReconstruction_EstTraitClockRates_EmpFreq"),
-		template_path = c(paste0(xml_writer_path, "templates/custom/TypeLinked/TraitLinkedExpectedOccupancy_FixedTraitClockRates_EmpFreq.xml"),
-						  paste0(xml_writer_path, "templates/custom/TypeLinked/TraitLinkedExpectedOccupancy_EstTraitClockRates_EmpFreq.xml"),
-						  paste0(xml_writer_path, "templates/custom/TypeLinked/TraitLinkedInstantSwitch_EstTraitClockRates_EmpFreq.xml"),
-						  paste0(xml_writer_path, "templates/custom/StrictClock/StrictClock_AncestralReconstruction_EmpFreq.xml"),
-						  paste0(xml_writer_path, "templates/custom/UCLD/UCRelaxedClock_AncestralReconstruction_EmpFreq.xml")),
-		ignore = list(c("freqParameter", "traitfrequencies", "typeLinkedRates", "rateIndicator"),
-					  c("freqParameter", "traitfrequencies", "typeLinkedRates", "rateIndicator"),
-					  c("freqParameter", "traitfrequencies", "typeLinkedRates", "rateIndicator"),
-					  c("freqParameter", "traitfrequencies", "rateIndicator"),
+		model = c(
+			"expectedOccupancy_EstTraitClockRates_EmpFreq",
+			"strictClock_AncestralReconstruction_EmpFreq",
+			"UCRelaxedClock_AncestralReconstruction_EstTraitClockRates_EmpFreq"
+			),
+		template_path = c(
+			paste0(xml_writer_path, "TypeLinked/TypeLinkedExpectedOccupancy_EstTraitClockRates_EmpFreq.xml"),
+			paste0(xml_writer_path, "StrictClock/StrictClock_AncestralReconstruction_EmpFreq.xml"),
+			paste0(xml_writer_path, "UCLD/UCRelaxedClock_AncestralReconstruction_EmpFreq.xml")),
+		ignore = list(
+					  c("freqParameter", "traitfrequencies", "typeLinkedRates", "rateIndicator", "rootType"),
+					  c("freqParameter", "traitfrequencies", "rateIndicator", "rootType"),
 					  c("freqParameter", "traitfrequencies", "rateIndicator", "rateCategories")),
 		RATE_INDICATORS = "1 1",
 		# Expected occupancy inputs
-		TRANSITION_RATE_ALPHA_1 = "0.1",
-		TRANSITION_RATE_BETA_1 = "1.0",
-		TRANSITION_RATE_ALPHA_2 = "0.1",
-		TRANSITION_RATE_BETA_2 = "1.0", 
+		TRANSITION_RATE_ALPHA_1 = TRANSITION_RATE_ALPHA,
+		TRANSITION_RATE_BETA_1 = TRANSITION_RATE_BETA,
+		TRANSITION_RATE_ALPHA_2 = TRANSITION_RATE_ALPHA,
+		TRANSITION_RATE_BETA_2 = TRANSITION_RATE_BETA,
+        TRANSITION_RATE_1_INIT = "0.2",
+		TRANSITION_RATE_2_INIT = "0.0004",
 		TRAIT_RATE_MEAN_1 = gc_clock_rate_mean, 
 		TRAIT_RATE_MEAN_2 = "0.000001",
 		TRAIT_RATE_SIGMA_1 = 0.01 * gc_clock_rate_mean,
 		TRAIT_RATE_SIGMA_2 = "0.001",
 		KAPPA_PRIOR_M = "0.67",
 		KAPPA_PRIOR_S = "0.2",
+		TYPE_SWITCH_INIT = "0.002",
+		TYPE_SWITCH_ALPHA = 0.001,
+		TYPE_SWITCH_BETA = 5.0,
 		# Strict clock/UCLD inputs
-		CLOCK_RATE_INIT = gc_clock_rate_mean/3,
-		TRANSITION_RATE_ALPHA = "0.1",
-		TRANSITION_RATE_BETA = "1.0",
+		CLOCK_RATE_INIT = gc_clock_rate_mean,
+		TRANSITION_RATE_ALPHA = TRANSITION_RATE_ALPHA,
+		TRANSITION_RATE_BETA = TRANSITION_RATE_BETA,
 		UCLD_SIGMA_INIT = "0.5"
 	)
 
@@ -157,13 +201,15 @@ if (job.id == 1){
 	index <- job.id - 1
 	if(index < 1 || index > nrow(input_data)) stop(paste0("Index ", index, " is out of bounds"))
 
+	max_start_date <- -1000
+
 	trees <- getTimeTreesIterate(trees,
 		iterations = 10,
 		ignore = input_data$ignore[[index]],
 		beast = beast_path, 
 		trait = "celltype",
 		time = "sample_time",
-		dir = "/dartfs-hpc/scratch/f007p0j/gc_reentry_sims/8_28/", 
+		dir = paste0("/scratch/", folder_name, "_", simulation_id, "/"), 
 		id = input_data$model[index], 
 		template = input_data$template_path[index],
 		nproc = 20,
@@ -182,17 +228,27 @@ if (job.id == 1){
 		TRAIT_RATE_SIGMA_2 = input_data$TRAIT_RATE_SIGMA_2[index],
 		KAPPA_PRIOR_M = input_data$KAPPA_PRIOR_M[index],
 		KAPPA_PRIOR_S = input_data$KAPPA_PRIOR_S[index],
+		TYPE_SWITCH_INIT = input_data$TYPE_SWITCH_INIT[index],
+		TYPE_SWITCH_ALPHA = input_data$TYPE_SWITCH_ALPHA[index],
+		TYPE_SWITCH_BETA = input_data$TYPE_SWITCH_BETA[index],
+		TRANSITION_RATE_1_INIT = input_data$TRANSITION_RATE_1_INIT[index],
+		TRANSITION_RATE_2_INIT = input_data$TRANSITION_RATE_2_INIT[index],
 		# Strict clock specific inputs
 		CLOCK_RATE_INIT = input_data$CLOCK_RATE_INIT[index],
 		TRANSITION_RATE_ALPHA = input_data$TRANSITION_RATE_ALPHA[index],
 		TRANSITION_RATE_BETA = input_data$TRANSITION_RATE_BETA[index],
 		# UCLD specific inputs
 		UCLD_SIGMA_INIT = input_data$UCLD_SIGMA_INIT[index],
-		seed = 89243 + index
-	)
+		NODES_TYPE_INIT=0,
+		seed = 89243 + index,
+		max_start_date = max_start_date,
+		root_trait=0
+		)
 
 	# Save the output
-	saveRDS(trees, paste0("./output_8_28/gc_reentry_sims_", input_data$model[index], "_", paste(clones_using, collapse = "_"), "_trees.rds"))
-
+	saveRDS(trees, paste0("./output_", folder_name, "/gc_reentry_sims_", input_data$model[index], "_", selection_id, "_trees.rds"))
 
 }
+
+
+# nolint end
