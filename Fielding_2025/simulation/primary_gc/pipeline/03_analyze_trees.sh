@@ -1,6 +1,6 @@
 #!/bin/bash
 # Get parameters
-SIMULATION_NAME="${1:-tltt_08_20}"
+SIMULATION_NAME="${1:-tltt_12_19}"
 ANALYSIS_TYPE="${2:-main_analysis}"
 REV_SUFFIX="${3:-irrev}"
 
@@ -32,7 +32,7 @@ echo "Tree analysis: $TREE_ANALYSIS_DIR"
 
 # Setup environment
 source /optnfs/common/miniconda3/etc/profile.d/conda.sh
-conda activate r_phylo
+conda activate r_phylo_4.4
 cd "$PROJECT_ROOT"
 
 # =============================================================================
@@ -287,7 +287,7 @@ PLOT_JOB_ID=$(sbatch --parsable \
         source /optnfs/common/miniconda3/etc/profile.d/conda.sh
         conda activate r_phylo
         cd \"$PROJECT_ROOT\"
-        Rscript scripts/plotting/plot_trees.R \
+        Rscript scripts/visualization/plot_trees.R \
             \"$JOB_LIST_FILE\" \
             \"\$SLURM_ARRAY_TASK_ID\" \
             \"$TREE_ANALYSIS_DIR\" \

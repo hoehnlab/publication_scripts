@@ -2,8 +2,6 @@
 
 ${DATA}
 
-    <parameter id="rateIndicator.s:newTrait" spec="parameter.BooleanParameter" dimension="2" name="rateIndicators">${RATE_INDICATORS}</parameter>
-
     <map name="Uniform" >beast.base.inference.distribution.Uniform</map>
     <map name="Exponential" >beast.base.inference.distribution.Exponential</map>
     <map name="LogNormal" >beast.base.inference.distribution.LogNormalDistributionModel</map>
@@ -15,19 +13,24 @@ ${DATA}
     <map name="InverseGamma" >beast.base.inference.distribution.InverseGamma</map>
     <map name="OneOnX" >beast.base.inference.distribution.OneOnX</map>
 
+    <parameter spec='beast.base.inference.parameter.IntegerParameter' name='rateCategories' id='rateCategories' dimension="2" value="1"/>
+    <parameter id="rateIndicator.s:newTrait" spec="parameter.BooleanParameter" dimension="2" name="rateIndicators">${RATE_INDICATORS}</parameter>
+
     <run id="mcmc" spec="MCMC" chainLength="30000000">
         <state id="state" spec="State" storeEvery="5000">
             <tree id="Tree.t:${CLONE}" spec="beast.base.evolution.tree.Tree" name="stateNode">
                 ${DATE}
                 <taxonset idref="TaxonSet.${CLONE}"/>
             </tree>
-            <parameter id="relativeGeoRates.s:newTrait" spec="parameter.RealParameter" name="stateNode" dimension="2" estimate="true">1.0 1.0</parameter>
-            <parameter id="traitClockRate.c:newTrait" spec="parameter.RealParameter" name="stateNode" upper="0.5">0.004</parameter>
+            <parameter id="relativeGeoRates.s:newTrait" spec="parameter.RealParameter" name="stateNode" dimension="2" estimate="true">${TRANSITION_RATE_1_INIT} ${TRANSITION_RATE_2_INIT}</parameter>
+            <parameter id="traitClockRate.c:newTrait" spec="parameter.RealParameter" name="stateNode" upper="0.5">${TYPE_SWITCH_INIT}</parameter>
             <parameter id="geneticClockRate.s:${CLONE}" spec="parameter.RealParameter" lower="0.0" name="stateNode" upper="0.5">${CLOCK_RATE_INIT}</parameter>
             <parameter id="kappa.s:${CLONE}" spec="parameter.RealParameter" lower="0.0" name="stateNode">2.0</parameter>
-            <parameter id="bPopSizes.t:${CLONE}" spec="parameter.RealParameter" dimension="5" lower="0.0" name="stateNode">380.0</parameter>
+            <parameter id="bPopSizes.t:${CLONE}" spec="parameter.RealParameter" dimension="5" lower="1.0" name="stateNode">380.0</parameter>
             <stateNode id="bGroupSizes.t:${CLONE}" spec="parameter.IntegerParameter" dimension="5" lower="0.0">1</stateNode>
             <parameter id="freqParameter.s:${CLONE}" spec="parameter.RealParameter" dimension="4" lower="0.0" name="stateNode" upper="1.0">${EMP_EQFREQS}</parameter>
+            <input name='stateNode' idref='ucld.stdev'/>
+            <input name='stateNode' idref='rateCategories'/>
         </state>
         <init id="RandomTree.t:${CLONE}" spec="beast.base.evolution.tree.coalescent.RandomTree" estimate="false" initial="@Tree.t:${CLONE}" taxa="@${CLONE}">
             <populationModel id="ConstantPopulation0.t:${CLONE}" spec="ConstantPopulation">
@@ -52,14 +55,6 @@ ${DATA}
                         <parameter id="RealParameter.7" spec="parameter.RealParameter" estimate="false" name="S">${KAPPA_PRIOR_S}</parameter>
                     </LogNormal>
                 </prior>
-                <prior id="nonZeroRatePrior.s:newTrait" name="distribution">
-                    <x id="nonZeroRates.s:newTrait" spec="beast.base.evolution.Sum">
-                        <arg idref="rateIndicator.s:newTrait"/>
-                    </x>
-                    <distr id="Poisson.0" spec="beast.base.inference.distribution.Poisson" offset="1.0">
-                        <parameter id="RealParameter.5" spec="parameter.RealParameter" estimate="false" name="lambda">0.693</parameter>
-                    </distr>
-                </prior>
                 <prior id="relativeGeoRatesPrior.s:newTrait" name="distribution" x="@relativeGeoRates.s:newTrait">
                     <Gamma id="Gamma.1" name="distr">
                         <parameter id="RealParameter.3" spec="parameter.RealParameter" estimate="false" name="alpha">${TRANSITION_RATE_ALPHA}</parameter>
@@ -68,8 +63,8 @@ ${DATA}
                 </prior>
                 <prior id="geoclockPrior.c:newTrait" name="distribution" x="@traitClockRate.c:newTrait">
                     <Gamma id="Gamma.0" name="distr">
-                        <parameter id="RealParameter.1" spec="parameter.RealParameter" estimate="false" name="alpha">0.001</parameter>
-                        <parameter id="RealParameter.2" spec="parameter.RealParameter" estimate="false" name="beta">5.0</parameter>
+                        <parameter id="RealParameter.1" spec="parameter.RealParameter" estimate="false" name="alpha">${TYPE_SWITCH_ALPHA}</parameter>
+                        <parameter id="RealParameter.2" spec="parameter.RealParameter" estimate="false" name="beta">${TYPE_SWITCH_BETA}</parameter>
                     </Gamma>
                 </prior>
                 ${MRCA}
@@ -85,8 +80,13 @@ ${DATA}
                             <frequencies id="estimatedFreqs.s:${CLONE}" spec="Frequencies" frequencies="@freqParameter.s:${CLONE}"/>
                         </substModel>
                     </siteModel>
-                    <branchRateModel spec='beast.base.evolution.branchratemodel.StrictClockModel' id="branchRates" clock.rate=
-                    "@geneticClockRate.s:${CLONE}"/>
+                    <branchRateModel name='branchRateModel' spec='beast.base.evolution.branchratemodel.UCRelaxedClockModel' id="branchRateModel" normalize='true' clock.rate=
+                    "@geneticClockRate.s:${CLONE}" rateCategories="@rateCategories" tree="@Tree.t:${CLONE}">                
+                        <distr id='lognormal' spec="beast.base.inference.distribution.LogNormalDistributionModel">
+                            <parameter name='M' id='M' value="1"/>
+                            <parameter name='S' id='ucld.stdev' value="${UCLD_SIGMA_INIT}" lower="0" upper="5"/>
+                        </distr>
+                    </branchRateModel>
                 </distribution>
                 <distribution id="traitedtreeLikelihood.newTrait" spec="beastclassic.evolution.likelihood.AncestralStateTreeLikelihood" tag="location" tree="@Tree.t:${CLONE}">
                     <data
@@ -94,6 +94,7 @@ ${DATA}
                             spec="beastclassic.evolution.alignment.AlignmentFromTrait">
                         ${TRAIT}
                     </data>
+                    ${ROOT_TYPE_PROBABILITIES}
                     <siteModel id="geoSiteModel.s:newTrait" spec="SiteModel" gammaCategoryCount="1">
                         <parameter id="mutationRate.s:newTrait" spec="parameter.RealParameter" estimate="false" name="mutationRate">1.0</parameter>
                         <parameter id="gammaShape.s:newTrait" spec="parameter.RealParameter" estimate="false" name="shape">1.0</parameter>
@@ -108,6 +109,10 @@ ${DATA}
                 </distribution>
             </distribution>
         </distribution>
+        <operator id="ucldSigmaScaler" spec="ScaleOperator" parameter="@ucld.stdev" scaleFactor="0.5" weight="10.0"/>
+        <operator id="CategoriesRandomWalk" spec="IntRandomWalkOperator" parameter="@rateCategories" weight="10.0" windowSize="1"/>
+        <operator id="CategoriesSwapOperator" spec="SwapOperator" intparameter="@rateCategories" weight="10.0"/>
+        <operator id="CategoriesUniform" spec="UniformOperator" parameter="@rateCategories" weight="10.0"/>
         <operator id="georateScaler.s:newTrait" spec="ScaleOperator" parameter="@relativeGeoRates.s:newTrait" scaleAllIndependently="true" scaleFactor="0.99" weight="1.0"/>
         <operator id="geoMuScaler.c:newTrait" spec="ScaleOperator" parameter="@traitClockRate.c:newTrait" scaleFactor="0.9" weight="3.0"/>
         <operator id="geneticMuScaler.s:${CLONE}" spec="ScaleOperator" parameter="@geneticClockRate.s:${CLONE}" scaleFactor="0.9" weight="2.0"/>
@@ -140,6 +145,8 @@ ${DATA}
             <log idref="bGroupSizes.t:${CLONE}"/>
             <log idref="freqParameter.s:${CLONE}"/>
             <log idref="traitfrequencies.s:newTrait"/>
+            <log idref="ucld.stdev"/>
+            <log idref="rateCategories"/>
         </logger>
         <logger id="screenlog" spec="Logger" logEvery="1000">
             <log idref="posterior"/>

@@ -4,7 +4,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=20
 #SBATCH --mem-per-cpu=8gb
-#SBATCH --time=144:00:00
+#SBATCH --time=192:00:00
 #SBATCH --output=/dartfs/rc/lab/H/HoehnK/Sherry/beast_workspace/slurm-output/%x/slurm-%A/slurm-%A_%a.out
 #SBATCH --error=/dartfs/rc/lab/H/HoehnK/Sherry/beast_workspace/slurm-output/%x/slurm-%A/slurm-%A_%a.err
 #SBATCH --account=hoehnlab
@@ -15,7 +15,7 @@
 set -e
 
 # Get parameters from command line
-simulation_run=${1:-"tltt_08_20"}
+simulation_run=${1:-"tltt_12_18"}
 analysis_scope=${2}                  # Required: main_analysis, sub_analysis, differentiation_analysis
 model_type=${3}                      # Required: gc_strict_clock, tyche_models, competing_models
 reversible=${4:-false}               # Whether non-GC to GC transitions are allowed
@@ -66,7 +66,7 @@ fi
 # Load conda environment
 source /optnfs/common/miniconda3/etc/profile.d/conda.sh
 conda --no-plugins init bash
-conda activate r_phylo
+conda activate r_phylo_4.4
 
 # Change to project directory
 cd "$PROJECT_ROOT"
@@ -94,7 +94,7 @@ case "$model_type" in
         step_description="Strict Clock on Germinal Center B cells"
         ;;
     tyche_models)
-        step_description="TyCHE models (5 variants) on all B cell populations"
+        step_description="TyCHE models (3 variants) on all B cell populations"
         ;;
     competing_models)
         step_description="Competing models (Strict + UCLD) on all B cell populations"
