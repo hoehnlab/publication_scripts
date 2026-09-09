@@ -1,3 +1,6 @@
+# Kenneth B. Hoehn
+# 9/19/25
+# Make figures from cancer data
 
 library(dowser)
 library(dplyr)
@@ -9,47 +12,12 @@ library(ggtree)
 library(treeio)
 library(viridis)
 
-
-#geom_range doesn't center HPD height intervals properly
-#fix based on this code
-#https://github.com/YuLab-SMU/ggtree/issues/306
-ggtree_height_bars = function(tr, color="blue", alpha=0.4, size=1.5){
-	#make sure everything is numeric
-	for(i in 1:nrow(tr@data)){
-		if(is.na(tr@data$height_0.95_HPD[[i]][1])){
-			tr@data$height_0.95_HPD[i] = 
-				list(c(tr@data$height[[i]],
-					tr@data$height[[i]]))
-		}
-		tr@data$height_0.95_HPD[[i]] = as.numeric(tr@data$height_0.95_HPD[[i]])
-	}
-	
-	tree_img = revts(ggtree::ggtree(tr))
-	minmax = t(matrix(unlist(tree_img$data$height_0.95_HPD),nrow=2))
-	
-	# get X, Y, and error bar mins and maxes
-	bar_df = as.data.frame(minmax) %>%
-	  rename(min = 2,
-	         max = 1) %>%
-	  dplyr::mutate_all(~-.x) %>%
-	  dplyr::bind_cols(dplyr::select(tree_img$data, y))
-	
-	# add error bars as line segmnents
-	tree_img + 
-	  ggplot2::geom_segment(aes(x=min, y=y, xend=max, yend=y), 
-	               data=bar_df, 
-	               color=color,
-	               alpha = alpha,
-	               size = size) 
-}
-
-
 patient = "4F0A"
 gd = readRDS(paste0("intermediates/",patient,"_gd_HN_tree.rds"))
 ngd = readRDS(paste0("intermediates/",patient,"_gd_N_tree.rds"))
-tlt = readRDS(paste0("intermediates/typelinked-est-irrev_v009_germline_trees.rds"))
-st = readRDS(paste0("intermediates/strict_v003_germline_trees.rds"))
-uc = readRDS(paste0("intermediates/ucld_v003_germline_trees.rds"))
+tlt = readRDS(paste0("intermediates/typelinked-est-irrev_v009_germline_trees_newdowser.rds"))
+st = readRDS(paste0("intermediates/strict_v003_germline_trees_newdowser.rds"))
+uc = readRDS(paste0("intermediates/ucld_v003_germline_trees_newdowser.rds"))
 no = readRDS(paste0("intermediates/strict_N_v003_germline_trees_constant.rds"))
 
 dates = c(0, 3042, 3772)
@@ -67,108 +35,30 @@ names(types) = c("H", "N", "Both")
 xmax = max(c(unlist(tlt$trees[[1]]@data$height_0.95_HPD),
 	unlist(uc$trees[[1]]@data$height_0.95_HPD)), na.rm=TRUE)
 
-minh = 3372 - max(c(unlist(as.numeric(tlt$trees[[1]]@data$height)),
-	unlist(as.numeric(uc$trees[[1]]@data$height))), na.rm=TRUE)
+tltheight = filter(tlt$parameters[[1]], item=="TreeHeight")$mean
+print(3772 - tltheight)
 
-print(tlt$below_ESS)
-print(st$below_ESS)
-print(uc$below_ESS)
-print(st$below_ESS)
-print(no$below_ESS)
-
-# UCLD seems fine
-bind_cols(uc$parameters[[1]]$item, uc$parameters[[1]]$ESS)
-
-pdf(paste0("results/",patient,"_hypermutator_tree_v009.pdf"),width=5,height=1.25)
-ggtree_height_bars(tlt$trees[[1]]) +
-geom_nodepoint(aes(fill= 3772-(as.numeric(height)),pch=location),size=2) +
-geom_tippoint(aes(fill=3772-(as.numeric(height)),pch=location),size=2) +
+pdf(paste0("results/",patient,"_hypermutator_tree_v009_TL_densitree.pdf"),width=5,height=1.25)
+plotTrees(tlt, densitree=TRUE, layout="slanted", alpha=0.05,
+    show_occupancy=TRUE, palette=c("H"="red","H-N"="purple","N"="blue"), 
+    tips="location", scale=FALSE)[[1]] +
 geom_vline(xintercept=dates-3772, linetype="dashed") +
-scale_fill_viridis(direction=1, limits=c(minh, end=3772)) +
-scale_shape_manual(values=shapes) +
-labs(fill="Day", shape="Clone") +
-xlim(-xmax, 0)
-
-ggtree_height_bars(uc$trees[[1]]) +
-geom_nodepoint(aes(fill= 3772-(as.numeric(height)),pch=location),size=2) +
-geom_tippoint(aes(fill=3772-(as.numeric(height)),pch=location),size=2) +
-geom_vline(xintercept=dates-3772, linetype="dashed") +
-scale_fill_viridis(direction=1, limits=c(minh, end=3772)) +
-scale_shape_manual(values=shapes) +
-labs(fill="Day", shape="Clone") +
-xlim(-xmax, 0)
-
-ggtree_height_bars(st$trees[[1]]) +
-geom_nodepoint(aes(fill= 3772-(as.numeric(height)),pch=location),size=2) +
-geom_tippoint(aes(fill=3772-(as.numeric(height)),pch=location),size=2) +
-geom_vline(xintercept=dates-3772, linetype="dashed") +
-scale_fill_viridis(direction=1, limits=c(min(3772-as.numeric(st$trees[[1]]@data$height)), end=3772)) +
-scale_shape_manual(values=shapes) +
-labs(fill="Day", shape="Clone")
+geom_vline(xintercept=-tltheight, linetype="dashed") 
 dev.off()
 
-
-hmax = max(unlist(no$trees[[1]]@data$height_0.95_HPD),na.rm=TRUE)
-hmax = max(c(hmax, unlist(tlt$trees[[1]]@data$height_0.95_HPD)),na.rm=TRUE)
-
-pdf(paste0("results/",patient,"_hypermutator_tree_v009_TL.pdf"),width=5,height=1.25)
-ggtree_height_bars(tlt$trees[[1]]) +
-geom_nodepoint(fill="black",pch=21,size=2) +
-geom_tippoint(aes(fill=3772-(as.numeric(height)),pch=location),size=2) +
-geom_vline(xintercept=dates-3772, linetype="dashed") +
-#scale_fill_viridis(direction=1, limits=c(0, end=3772)) +
-scale_fill_viridis(direction=1) +
-scale_shape_manual(values=shapes) +
-labs(fill="Day", shape="Clone") +
-xlim(-hmax,0)+
-guides(fill="none", shape="none")
-
-ggtree_height_bars(tlt$trees[[1]]) +
-geom_nodepoint(fill="black",pch=21,size=2) +
-geom_tippoint(aes(fill=3772-(as.numeric(height)),pch=location),size=2) +
-geom_vline(xintercept=dates-3772, linetype="dashed") +
-scale_fill_viridis(direction=1)+#, limits=c(0, end=3772)) +
-scale_shape_manual(values=shapes) +
-labs(fill="Day", shape="Clone") +
-xlim(-hmax,0)+
-guides(shape="none")
+pdf(paste0("results/",patient,"_hypermutator_tree_v009_SC_densitree.pdf"),width=5,height=1.25)
+plotTrees(st, densitree=TRUE, layout="slanted", alpha=0.05,
+    show_occupancy=FALSE, palette=c("H"="red","H-N"="purple","N"="blue"), 
+    tips="location", scale=FALSE)[[1]] +
+geom_vline(xintercept=dates-3772, linetype="dashed") 
 dev.off()
 
-pdf(paste0("results/",patient,"_hypermutator_tree_v003_NO.pdf"),width=5,height=1.25)
-ggtree_height_bars(no$trees[[1]]) +
-geom_nodepoint(fill="black",pch=21,size=2) +
-geom_tippoint(aes(fill=3042-(as.numeric(height))),pch=21,size=2) +
-geom_vline(xintercept=dates[1:2]-3042, linetype="dashed") +
-scale_fill_viridis(direction=1,limits=c(0, end=3772)) +
-labs(fill="Day", shape="Clone") +
-xlim(-hmax,0)+
-guides(fill="none")
+pdf(paste0("results/",patient,"_hypermutator_tree_v009_UCLD_densitree.pdf"),width=5,height=1.25)
+plotTrees(uc, densitree=TRUE, layout="slanted", alpha=0.05,
+    show_occupancy=FALSE, palette=c("H"="red","H-N"="purple","N"="blue"), 
+    tips="location", scale=FALSE)[[1]] +
+geom_vline(xintercept=dates-3772, linetype="dashed") 
 dev.off()
-
-pdf(paste0("results/",patient,"_hypermutator_tree_v003_SC.pdf"),width=5,height=1.25)
-ggtree_height_bars(st$trees[[1]]) +
-geom_nodepoint(fill="black",pch=21,size=2) +
-geom_tippoint(aes(fill=3772-(as.numeric(height)),pch=location),size=2) +
-geom_vline(xintercept=dates-3772, linetype="dashed") +
-scale_fill_viridis(direction=1, limits=c(0, end=3772)) +
-scale_shape_manual(values=shapes) +
-labs(fill="Day", shape="Clone") +
-xlim(-hmax,0)+
-guides(fill="none", shape="none")
-dev.off()
-
-pdf(paste0("results/",patient,"_hypermutator_tree_v003_UC.pdf"),width=5,height=1.25)
-ggtree_height_bars(uc$trees[[1]]) +
-geom_nodepoint(fill="black",pch=21,size=2) +
-geom_tippoint(aes(fill=3772-(as.numeric(height)),pch=location),size=2) +
-geom_vline(xintercept=dates-3772, linetype="dashed") +
-scale_fill_viridis(direction=1, limits=c(0, end=3772)) +
-scale_shape_manual(values=shapes) +
-labs(fill="Day", shape="Clone") +
-guides(fill="none", shape="none")
-dev.off()
-
-
 
 
 mintl = min(3772-(as.numeric(tlt$trees[[1]]@data$height)))
@@ -183,7 +73,6 @@ scale_shape_manual(values=shapes) +
 labs(fill="Day", shape="Strain")
 dev.off()
 
-# TODO rerun!
 pdf("results/distance_tree_gd_big.pdf", width=60,height=2)
 plotTrees(gd, scale=10)[[1]] +
 geom_tippoint(aes(fill=sample_time,pch=location),size=2) +
@@ -192,7 +81,6 @@ scale_shape_manual(values=shapes) +
 labs(fill="Day", shape="Strain")
 dev.off()
 
-# TODO rerun!
 pdf("results/distance_tree_gd_mid.pdf", width=15,height=4)
 plotTrees(gd, scale=100)[[1]] +
 geom_tippoint(aes(fill=sample_time,pch=location),size=4) +
@@ -201,8 +89,7 @@ scale_shape_manual(values=shapes) +
 labs(fill="Day", shape="Strain")
 dev.off()
 
-
-
+# make parameter plots
 tl = tlt$parameters[[1]]
 tl$mean = as.numeric(tl$mean)
 tl$run = "TL"
@@ -294,19 +181,6 @@ dates %>%
 #2 SC       -53.5     -32.3     -75.4
 #3 TL     -6035.    -3924.    -8145. 
 #4 NS     -5508.    -2164.    -9763. 
-
-
-plotTrees(tlt, node_nums=TRUE)
-
-# do more programatically
-hmrca = 7
-(3772 - as.numeric(filter(tlt$trees[[1]]@data, node==hmrca)$height))/365
-# 2.724447
-
-(3772 - as.numeric(filter(tlt$trees[[1]]@data, node==hmrca)$height_0.95_HPD[[1]]))/365
-# 4.1302828 0.8940102
-
-
 
 
 

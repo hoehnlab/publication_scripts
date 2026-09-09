@@ -96,12 +96,11 @@ Hgd = readRDS(paste0("intermediates/",patient,"_gd_H_tree.rds"))
 allgd = readRDS(paste0("intermediates/",patient,"_gd_HN_tree.rds"))
 
 runs = c(
-    "typelinked-est-irrev"#,
-    #"ucld",
-   # "strict"
+    "typelinked-est-irrev",
+    "ucld",
+    "strict"
         )
 
-# TODO make sure consistnet with new templates
 templates = c(
     "typelinked-est-irrev"=paste0("templates/TypeLinkedExpectedOccupancy_FixedTraitClockRates_EmpFreq_Pop1.xml"),
     "strict"=paste0("templates/StrictClock_AncestralReconstruction_EmpFreq_Constant.xml"),
@@ -164,5 +163,44 @@ for(run in runs){
     plots = plotTrees(trees, tips="location", nodes=TRUE, scale=108)
     treesToPDF(plots,paste0("results/",run,"_v009_germline_trees.pdf"))
 }
+
+
+# re-read in to create new Dowser objects
+run = "strict"
+xtemplate = templates[[run]]
+    
+trees = readBEAST(allgd, beast=beast, 
+    trait="location",
+    dir=paste0("~/Documents/beast_cancer/"), 
+    id=paste0(run,"_v003_germline"), 
+    nproc=1, 
+    posterior="all")
+
+saveRDS(trees,  paste0("intermediates/",run,"_v003_germline_trees_newdowser.rds"))
+
+run = "ucld"
+xtemplate = templates[[run]]
+    
+trees = readBEAST(allgd, beast=beast, 
+    trait="location",
+    dir=paste0("~/Documents/beast_cancer/"), 
+    id=paste0(run,"_v003_germline"), 
+    nproc=1, 
+    posterior="all")
+
+saveRDS(trees,  paste0("intermediates/",run,"_v003_germline_trees_newdowser.rds"))
+
+run = "typelinked-est-irrev"
+xtemplate = templates[[run]]
+    
+trees = readBEAST(allgd, beast=beast, 
+    trait="location",
+    dir=paste0("~/Documents/beast_cancer/"), 
+    id=paste0(run,"_v009_germline"), 
+    nproc=1, 
+    posterior="all")
+
+saveRDS(trees,  paste0("intermediates/",run,"_v009_germline_trees_newdowser.rds"))
+
 
 

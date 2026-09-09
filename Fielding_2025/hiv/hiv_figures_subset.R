@@ -47,9 +47,9 @@ alltrees = tibble()
 for(model in models){
 	for(patient in patients){
 		if(model %in% c("typelinked-irrev","typelinked-eo-est","typelinked-eo-estflip")){
-			trees = readRDS(paste0("intermediates/",patient,"_v009op4_",model,".trees.rds"))
+			trees = readRDS(paste0("intermediates/",patient,"_v009op4_",model,"_fullposterior.trees.rds"))
 		}else{
-			trees = readRDS(paste0("intermediates/",patient,"_v009op4_",model,".trees.rds"))
+			trees = readRDS(paste0("intermediates/",patient,"_v009op4_",model,"_fullposterior.trees.rds"))
 		}
 		print(patient)
 		print(table(unlist(sapply(trees$data, function(x)x@data$subset))))
@@ -119,6 +119,13 @@ alltrees$posterior = sapply(alltrees$parameters, function(x)filter(x, item=="pos
 alltrees$likelihood = sapply(alltrees$parameters, function(x)filter(x, item=="likelihood")$mean)
 allheights$patient = gsub("IV","",allheights$patient)
 
+saveRDS(alltrees,"results/alltrees_fullposterior.rds")
+alltrees = readRDS("results/alltrees_fullposterior.rds")
+
+for(i in 1:nrow(alltrees)){
+	alltrees$trees[[i]]@info$trees_with_traits_posterior = alltrees$trees[[i]]@info$tree_posterior
+}
+
 # make UCA timing plots
 pdf("results/UCA_dates_TL_subset.pdf", width=3.0,height=2)
 ggplot(filter(allheights, model=="typelinked-irrev"), 
@@ -150,23 +157,28 @@ guides(fill="none") +
 scale_y_discrete(limits=rev)
 dev.off()
 
+
 ## get differentiation points
 alltrees$clone_id = paste0(alltrees$patient, "-",alltrees$clone_id)
 diff_points = dowser::getDiffPoints(alltrees, trait="location",
 	tip_traits=c("subset","collapse_count"),
-	eo_adjust=TRUE, eo_type="germinal_center")
+	eo_adjust=TRUE, eo_type="germinal_center", full_posterior=TRUE,
+	nproc=16, verbose=TRUE)
+
+saveRDS(diff_points, "results/diffpoints.rds")
+diff_points = readRDS("results/diffpoints.rds")
 
 diff_points$patient = sapply(strsplit(diff_points$clone_id, split="-"), function(x)x[1])
-diff_points$date = 0 - diff_points$node_height
+diff_points$date = 0 - diff_points$node_height_mean
 diff_points$patient = gsub("IV","",diff_points$patient)
 
 dclones = diff_points %>%
 	group_by(patient, clone_id, subset) %>%
-	summarize(mean_date = mean(date), tree_height=unique(node_height))
+	summarize(mean_date = mean(date), tree_height=paste0(unique(node_height_mean), collapse=","))
 
 my_comparisons <- list(c("UnMem", "MemHi"), c("UnMem", "MemLo"), c("MemHi", "MemLo"))
 
-pdf("results/TLdiff.pdf",width=3,height=3)
+pdf("results/TLdiff_fullposterior.pdf",width=3,height=3)
 ggplot(filter(diff_points, tip != "Germline" & subset != "GC"), aes(y = date, x = subset)) +
 geom_boxplot(outlier.shape=NA,aes(fill=patient), alpha=0.25) +
 stat_compare_means(comparisons=my_comparisons,
@@ -180,7 +192,6 @@ theme_bw() +
 theme(legend.position = "none")+
 scale_y_continuous(expand = expansion(mult = 0.06))
 dev.off()
-
 
 # find good example tree
 # add subset to tips
@@ -209,13 +220,13 @@ treesToPDF(p4s, "results/p4s.pdf",nrow=1,ncol=2)
 
 # filter down to example clone
 palette = c("germinal_center" = "red", "germinal_center, other"="purple", "other"="blue")
-tree = filter(a4, clone_id == "HIV2-59968")$trees[[1]]
+tree = filter(alltrees, clone_id == "HIV2-59968")$trees[[1]]
 dps = getDiffPoints(a4,trait="location",
 	tip_traits=c("subset","collapse_count"),
 	eo_adjust=FALSE, eo_type="germinal_center",
 	height="CAheight_mean")
 dps = filter(dps, clone_id == "HIV2-59968")
-dphs = unique(filter(dps, tip_type == "other")$node_height)
+dphs = unique(filter(dps, tip_type == "other")$parent_height)
 mh = max(as.numeric(tree@data$CAheight_mean),na.rm=TRUE)
 
 # add in GC probabilities
@@ -226,7 +237,7 @@ tree@data$prob_gc <- NA
      	1-as.numeric(tree@data$location.prob[i]))
  }
 
-pdf("results/extree.pdf",width=4,height=6)
+pdf("results/extree_wider.pdf",width=7,height=6)
 ggtree(tree, aes(color=as.numeric(expectedOccupancies)),size=1) + 
 geom_tippoint(aes(shape=subset, fill=prob_gc),color="black",size=3) +
 geom_nodepoint(aes(fill=prob_gc, shape=location),color="black",size=3) +
@@ -250,17 +261,13 @@ geom_treescale(width=mh, fontsize=1)+
 geom_vline(xintercept=mh-dphs, linetype="dashed",linewidth=0.5,color="darkgrey")
 dev.off()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+pdf("results/extree_wider_densitree.pdf",width=7,height=6)
+plotTrees(filter(alltrees, clone_id == "HIV2-59968"), 
+	densitree=TRUE, layout="slanted", alpha=0.1,
+	show_occupancy=TRUE, palette=c("germinal_center"="red",
+		"germinal_center-other"="purple","other"="blue"), 
+	tips="location",
+	scale=FALSE)[[1]] +
+geom_treescale(width=25, x=0,y=0)
+dev.off()
 

@@ -15,43 +15,10 @@ library(viridis)
 print(sessionInfo())
 
 
-#geom_range doesn't center HPD height intervals properly
-#fix based on this code
-#https://github.com/YuLab-SMU/ggtree/issues/306
-ggtree_height_bars = function(tr, color="blue", alpha=0.4, size=1.5){
-    #make sure everything is numeric
-    for(i in 1:nrow(tr@data)){
-        if(is.na(tr@data$height_0.95_HPD[[i]][1])){
-            tr@data$height_0.95_HPD[i] = 
-                list(c(tr@data$height[[i]],
-                    tr@data$height[[i]]))
-        }
-        tr@data$height_0.95_HPD[[i]] = as.numeric(tr@data$height_0.95_HPD[[i]])
-    }
-    
-    tree_img = revts(ggtree::ggtree(tr))
-    minmax = t(matrix(unlist(tree_img$data$height_0.95_HPD),nrow=2))
-    
-    # get X, Y, and error bar mins and maxes
-    bar_df = as.data.frame(minmax) %>%
-      rename(min = 2,
-             max = 1) %>%
-      dplyr::mutate_all(~-.x) %>%
-      dplyr::bind_cols(dplyr::select(tree_img$data, y))
-    
-    # add error bars as line segmnents
-    tree_img + 
-      ggplot2::geom_segment(aes(x=min, y=y, xend=max, yend=y), 
-                   data=bar_df, 
-                   color=color,
-                   alpha = alpha,
-                   size = size) 
-}
-
-# read in TreeAnnotator output
-t = readRDS(paste0("intermediates/typelinked-est-irrev_v009_trees.rds"))
-s = readRDS(paste0("intermediates/strict_v003_trees.rds"))
-u = readRDS(paste0("intermediates/ucld_v003_trees.rds"))
+# read in results
+t = readRDS("intermediates/pseudomonas_all.rds")
+s = readRDS("intermediates/pseudomonas_sc_all.rds")
+u = readRDS("intermediates/pseudomonas_ucld_all.rds")
 
 dates = c(0, 9, 50, 66, 76,101)
 labs = c(
@@ -63,67 +30,22 @@ labs = c(
 "last"
 	)
 
-tree_height = max(as.numeric(t$trees[[1]]@data$height))
-tree_height = filter(t$parameters[[1]], item=="TreeHeight")$mean
-
 shapes = c("H"=24, "N"=21, "Both"=23)
 
 types = RColorBrewer::brewer.pal(3,"Set1")
 names(types) = c("H", "N", "Both")
 
-pdf("results/hypermutator_tree.pdf",width=5,height=2)
-ggtree_height_bars(t$trees[[1]], size=1) +
-geom_nodepoint(aes(fill=101 - (as.numeric(height)),pch=location),size=2) +
-geom_tippoint(aes(fill=101 - (as.numeric(height)),pch=location),size=2) +
+
+pdf("results/hypermutator_densitree.pdf",width=5,height=2)
+plotTrees(t, densitree=TRUE, layout="slanted", alpha=0.05,
+    show_occupancy=TRUE, palette=c("H"="red","H-N"="purple","N"="blue"), 
+    tips="location", scale=FALSE)[[1]] +
 geom_vline(xintercept=dates - 101, linetype="dashed") +
-geom_text(label=labs[1],x=dates[1]-101, y=10, angle=90,check_overlap=TRUE)+
-geom_text(label=labs[2],x=dates[2]-101, y=10, angle=90,check_overlap=TRUE)+
-geom_text(label=labs[3],x=dates[3]-101, y=10, angle=90,check_overlap=TRUE) +
-geom_text(label=labs[4],x=dates[4]-101, y=10, angle=90,check_overlap=TRUE) +
-geom_text(label=labs[5],x=dates[5]-101, y=10, angle=90,check_overlap=TRUE) +
-scale_fill_viridis(direction=1, limits=c(0, end=101)) +
-scale_shape_manual(values=shapes) +
-labs(fill="Day", shape="Strain") 
-
-ggtree_height_bars(u$trees[[1]]) +
-geom_nodepoint(aes(fill=101 - (as.numeric(height)),pch=location),size=2) +
-geom_tippoint(aes(fill=101 - (as.numeric(height)),pch=location),size=2) +
-geom_vline(xintercept=dates - 101, linetype="dashed") +
-geom_text(label=labs[1],x=dates[1]-101, y=10, angle=90,check_overlap=TRUE)+
-geom_text(label=labs[2],x=dates[2]-101, y=10, angle=90,check_overlap=TRUE)+
-geom_text(label=labs[3],x=dates[3]-101, y=10, angle=90,check_overlap=TRUE) +
-geom_text(label=labs[4],x=dates[4]-101, y=10, angle=90,check_overlap=TRUE) +
-geom_text(label=labs[5],x=dates[5]-101, y=10, angle=90,check_overlap=TRUE) +
-scale_fill_viridis(direction=1, limits=c(0, end=101)) +
-scale_shape_manual(values=shapes) +
-labs(fill="Day", shape="Strain") 
-
-ggtree_height_bars(s$trees[[1]]) +
-geom_nodepoint(aes(fill=101 - (as.numeric(height)),pch=location),size=2) +
-geom_tippoint(aes(fill=101 - (as.numeric(height)),pch=location),size=2) +
-geom_vline(xintercept=dates - 101, linetype="dashed") +
-geom_text(label=labs[1],x=dates[1]-101, y=10, angle=90,check_overlap=TRUE)+
-geom_text(label=labs[2],x=dates[2]-101, y=10, angle=90,check_overlap=TRUE)+
-geom_text(label=labs[3],x=dates[3]-101, y=10, angle=90,check_overlap=TRUE) +
-geom_text(label=labs[4],x=dates[4]-101, y=10, angle=90,check_overlap=TRUE) +
-geom_text(label=labs[5],x=dates[5]-101, y=10, angle=90,check_overlap=TRUE) +
-scale_fill_viridis(direction=1, limits=c(0, end=101)) +
-scale_shape_manual(values=shapes) +
-labs(fill="Day", shape="Strain") 
-
-revts(ggtree(s$trees[[1]])) +
-geom_nodepoint(aes(fill=101 - (as.numeric(height)),pch=location),size=2) +
-geom_tippoint(aes(fill=101 - (as.numeric(height)),pch=location),size=2) +
-#geom_vline(xintercept=dates - 101, linetype="dashed") +
-#geom_text(label=labs[1],x=dates[1]-101, y=10, angle=90,check_overlap=TRUE)+
-#geom_text(label=labs[2],x=dates[2]-101, y=10, angle=90,check_overlap=TRUE)+
-#geom_text(label=labs[3],x=dates[3]-101, y=10, angle=90,check_overlap=TRUE) +
-#geom_text(label=labs[4],x=dates[4]-101, y=10, angle=90,check_overlap=TRUE) +
-#geom_text(label=labs[5],x=dates[5]-101, y=10, angle=90,check_overlap=TRUE) +
-scale_fill_viridis(direction=1, limits=c(0, end=101)) +
-scale_shape_manual(values=shapes) +
-labs(fill="Day", shape="Strain") 
-
+geom_text(label=labs[1],x=dates[1]-101, y=10, angle=90,check_overlap=TRUE, color="black")+
+geom_text(label=labs[2],x=dates[2]-101, y=10, angle=90,check_overlap=TRUE, color="black")+
+geom_text(label=labs[3],x=dates[3]-101, y=10, angle=90,check_overlap=TRUE, color="black") +
+geom_text(label=labs[4],x=dates[4]-101, y=10, angle=90,check_overlap=TRUE, color="black") +
+geom_text(label=labs[5],x=dates[5]-101, y=10, angle=90,check_overlap=TRUE, color="black")
 dev.off()
 
 
@@ -131,11 +53,11 @@ hmrca = getMRCA(t$trees[[1]]@phylo,
   tip=t$trees[[1]]@phylo$tip.label[grepl("_H_", t$trees[[1]]@phylo$tip.label)])
 101 - as.numeric(filter(t$trees[[1]]@data, node==hmrca)$height)
 # H MRCA date
-#[1] 46.45745
+#[1] 46.52153
 
 101 - max(as.numeric(t$trees[[1]]@data$height))
-# H MRCA date
-#[1] 14.5163
+# MRCA date
+#[1] 14.06611
 
 # get genetic distance tree
 fasta = readFasta("data/hypermutator_paper_alignment_L.fasta")
@@ -183,11 +105,11 @@ hl = readRDS("intermediates/htree.rds")$parameters[[1]]
 hl$run = "HL"
 nl = readRDS("intermediates/ntree.rds")$parameters[[1]]
 nl$run = "NL"
-tl = readRDS("intermediates/typelinked-est-irrev_v009_trees.rds")$parameters[[1]]
+tl = t$parameters[[1]]
 tl$run = "TL"
-sc = readRDS("intermediates/strict_v003_trees.rds")$parameters[[1]]
+sc = s$parameters[[1]]
 sc$run = "SC"
-uc = readRDS("intermediates/ucld_v003_trees.rds")$parameters[[1]]
+uc = u$parameters[[1]]
 uc$run = "UC"
 comb = bind_rows(hl,nl,tl,sc,uc)
 
@@ -214,7 +136,6 @@ heights$run = factor(heights$run,
     levels=rev(c("NL","HL","TL","SC","UC")))
 
 size = 2
-
 pdf("results/treeheights.pdf", width=3,height=2.5)
 g1 = ggplot(heights, aes(y=run, x=mean, xmax=X95.HPDup, xmin=X95.HPDlo,
 	fill=strain, shape=strain)) +

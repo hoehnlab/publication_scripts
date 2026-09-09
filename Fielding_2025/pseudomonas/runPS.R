@@ -42,7 +42,7 @@ if(FALSE){
         germ="germline_alignment", use_regions=FALSE)
     saveRDS(clones, "intermediates/clones.rds")
 
-    # split by H and H
+    # split by N and H
     ndata = filter(data, location=="N")
     hdata = filter(data, location=="H")
     nclones = formatClones(ndata, filterstop=FALSE,
@@ -149,4 +149,35 @@ for(run in runs){
     plots = plotTrees(trees, tips="location", nodes=TRUE, scale=108)
     treesToPDF(plots,paste0("results/",run,"_v009_trees.pdf"))
 }
+
+
+# re-read in so we can make densitree plots
+run = "typelinked-est-irrev"
+clones = readRDS(paste0("intermediates/",run,"_v009_trees.rds"))
+trees = readBEAST(clones, beast=beast, 
+        trait="location", 
+        dir=paste0("~/Documents/pseudomonas/"), 
+        id=paste0(run,"_v009"), posterior="all")
+
+saveRDS(trees,"intermediates/pseudomonas_all.rds")
+
+run = "ucld"
+clones = readRDS(paste0("intermediates/",run,"_v003_trees.rds"))
+trees = readBEAST(clones, beast=beast, 
+        trait="location", 
+        dir=paste0("~/Documents/pseudomonas/"), 
+        id=paste0(run,"_v003"), posterior="all")
+
+saveRDS(trees,"intermediates/pseudomonas_ucld_all.rds")
+
+run = "strict"
+clones = readRDS(paste0("intermediates/",run,"_v003_trees.rds"))
+trees = readBEAST(clones, beast=beast, 
+        trait="location", 
+        dir=paste0("~/Documents/pseudomonas/"), 
+        id=paste0(run,"_v003"), posterior="all")
+
+saveRDS(trees,"intermediates/pseudomonas_sc_all.rds")
+
+
 

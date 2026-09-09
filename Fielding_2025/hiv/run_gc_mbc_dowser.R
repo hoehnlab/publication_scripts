@@ -90,7 +90,6 @@ for(patient in patients){
 		treesToPDF(p, file=paste0("results/",patient,"_gd_parsimony_trees.pdf"), ncol=1,nrow=2)
 	}
 
-
 	runs = c(
 	"typelinked-irrev"
 		)
